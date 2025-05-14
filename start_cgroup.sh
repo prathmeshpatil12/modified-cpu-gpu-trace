@@ -54,6 +54,16 @@ start_tracing() {
     # sudo turbostat --Summary --quiet --show Time_Of_Day_Seconds,CorWatt --interval 0.1 > "./Result/${CGROUP_NAME}/${CGROUP_NAME}_RAPL.csv" & TURBOSTAT_PID=$!
 }
 
+# Function to copy the process maps file into the Result directory
+copy_pid_maps() {
+    cp /proc/"$1"/maps "./Result/${CGROUP_NAME}/${CGROUP_NAME}.maps"
+    if [ $? -ne 0 ]; then
+        echo "Failed to copy maps for PID $1"
+    else
+        echo "Copied maps for PID $1 to ./Result/${CGROUP_NAME}/${CGROUP_NAME}.maps"
+    fi
+}
+
 # Function to clean up the cgroup on exit
 cleanup() {
     sudo rmdir /sys/fs/cgroup/$CONTROLLER/$CGROUP_NAME
@@ -98,6 +108,9 @@ start_tracing
 
 echo "Executable is running in cgroup $CGROUP_NAME under controller $CONTROLLER with PID $PID"
 
+# Copy /proc/<PID>/maps to the Result directory
+copy_pid_maps "$PID"
+
 # Wait for the executable to finish
 wait $PID
 wait $DW_PID
@@ -109,7 +122,7 @@ wait $PYSPY_PID
 # Function to process results and generate reports
 process_results() {
     # Execute collapse_report.py on the generated csv
-    # ./collapse_report.py -e 6 "./Result/${CGROUP_NAME}/${CGROUP_NAME}.csv"
+    ./collapse_report.py -e 6 "./Result/${CGROUP_NAME}/${CGROUP_NAME}.csv"
     echo "Running collapse file generator to combine results from pyspy and energy measurements..."
     python3 collapse_report_generator.py "./Result/${CGROUP_NAME}/${CGROUP_NAME}_pyspy_timestamps.json" "./Result/${CGROUP_NAME}/${CGROUP_NAME}.csv" -o "Result/${CGROUP_NAME}/${CGROUP_NAME}_energy.collapsed"
     
@@ -118,8 +131,8 @@ process_results() {
     ./flamegraph.pl --title "Energy Flame Graph" --countname "microwatts" "./Result/${CGROUP_NAME}/${CGROUP_NAME}_energy.collapsed" > "./Result/${CGROUP_NAME}/${CGROUP_NAME}_energy.svg"
     
     # Echo before running flamegraph.pl for CPU flame graph
-    # echo "Running flamegraph.pl for CPU Flame Graph..."
-    # ./flamegraph.pl --title "CPU Flame Graph" --countname "samples" "./Result/${CGROUP_NAME}/${CGROUP_NAME}_cpu.collapsed" > "./Result/${CGROUP_NAME}/${CGROUP_NAME}_cpu.svg"
+    echo "Running flamegraph.pl for CPU Flame Graph..."
+    ./flamegraph.pl --title "CPU Flame Graph" --countname "samples" "./Result/${CGROUP_NAME}/${CGROUP_NAME}_cpu.collapsed" > "./Result/${CGROUP_NAME}/${CGROUP_NAME}_cpu.svg"
 }
 
 # Run the function to process results after tracing is complete

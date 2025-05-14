@@ -96,15 +96,17 @@ def main():
     power_data = load_csv_data(args.csv_file)
     
     matched_data = match_stacks_with_power(stacks, power_data)
+    #print("Matched Data: ")
+    #print(matched_data)
     
     flamegraph_data = generate_flamegraph_data(matched_data)
+    #print("Flamegraph Data: ")
+    #print(flamegraph_data)
     
     with open(args.output, 'w') as f:
         f.write('\n'.join(flamegraph_data))
     
     print(f"Flamegraph data written to {args.output}")
-    print("You can visualize it using flamegraph.pl like this:")
-    print(f"flamegraph.pl {args.output} > flamegraph.svg")
 
 if __name__ == "__main__":
     main()

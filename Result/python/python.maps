@@ -1,0 +1,53 @@
+00400000-00420000 r--p 00000000 103:02 45744515                          /usr/bin/python3.12
+00420000-00703000 r-xp 00020000 103:02 45744515                          /usr/bin/python3.12
+00703000-00a27000 r--p 00303000 103:02 45744515                          /usr/bin/python3.12
+00a27000-00a28000 r--p 00627000 103:02 45744515                          /usr/bin/python3.12
+00a28000-00ba6000 rw-p 00628000 103:02 45744515                          /usr/bin/python3.12
+00ba6000-00ba9000 rw-p 00000000 00:00 0 
+19e40000-19f32000 rw-p 00000000 00:00 0                                  [heap]
+79709b000000-79709b200000 rw-p 00000000 00:00 0 
+79709b200000-79709b775000 r--p 00000000 103:02 45745487                  /usr/lib/locale/locale-archive
+79709b800000-79709b828000 r--p 00000000 103:02 45755204                  /usr/lib/x86_64-linux-gnu/libc.so.6
+79709b828000-79709b9b0000 r-xp 00028000 103:02 45755204                  /usr/lib/x86_64-linux-gnu/libc.so.6
+79709b9b0000-79709b9ff000 r--p 001b0000 103:02 45755204                  /usr/lib/x86_64-linux-gnu/libc.so.6
+79709b9ff000-79709ba03000 r--p 001fe000 103:02 45755204                  /usr/lib/x86_64-linux-gnu/libc.so.6
+79709ba03000-79709ba05000 rw-p 00202000 103:02 45755204                  /usr/lib/x86_64-linux-gnu/libc.so.6
+79709ba05000-79709ba12000 rw-p 00000000 00:00 0 
+79709ba5f000-79709ba61000 r--p 00000000 103:02 45759141                  /usr/lib/x86_64-linux-gnu/libffi.so.8.1.4
+79709ba61000-79709ba68000 r-xp 00002000 103:02 45759141                  /usr/lib/x86_64-linux-gnu/libffi.so.8.1.4
+79709ba68000-79709ba69000 r--p 00009000 103:02 45759141                  /usr/lib/x86_64-linux-gnu/libffi.so.8.1.4
+79709ba69000-79709ba6a000 r--p 0000a000 103:02 45759141                  /usr/lib/x86_64-linux-gnu/libffi.so.8.1.4
+79709ba6a000-79709ba6b000 rw-p 0000b000 103:02 45759141                  /usr/lib/x86_64-linux-gnu/libffi.so.8.1.4
+79709ba81000-79709ba87000 r--p 00000000 103:02 46144446                  /usr/lib/python3.12/lib-dynload/_ctypes.cpython-312-x86_64-linux-gnu.so
+79709ba87000-79709ba99000 r-xp 00006000 103:02 46144446                  /usr/lib/python3.12/lib-dynload/_ctypes.cpython-312-x86_64-linux-gnu.so
+79709ba99000-79709ba9f000 r--p 00018000 103:02 46144446                  /usr/lib/python3.12/lib-dynload/_ctypes.cpython-312-x86_64-linux-gnu.so
+79709ba9f000-79709baa0000 r--p 0001d000 103:02 46144446                  /usr/lib/python3.12/lib-dynload/_ctypes.cpython-312-x86_64-linux-gnu.so
+79709baa0000-79709baa4000 rw-p 0001e000 103:02 46144446                  /usr/lib/python3.12/lib-dynload/_ctypes.cpython-312-x86_64-linux-gnu.so
+79709baa4000-79709bb08000 rw-p 00000000 00:00 0 
+79709bb08000-79709bb0c000 r--p 00000000 103:02 45744224                  /usr/lib/x86_64-linux-gnu/libexpat.so.1.9.1
+79709bb0c000-79709bb29000 r-xp 00004000 103:02 45744224                  /usr/lib/x86_64-linux-gnu/libexpat.so.1.9.1
+79709bb29000-79709bb31000 r--p 00021000 103:02 45744224                  /usr/lib/x86_64-linux-gnu/libexpat.so.1.9.1
+79709bb31000-79709bb33000 r--p 00028000 103:02 45744224                  /usr/lib/x86_64-linux-gnu/libexpat.so.1.9.1
+79709bb33000-79709bb34000 rw-p 0002a000 103:02 45744224                  /usr/lib/x86_64-linux-gnu/libexpat.so.1.9.1
+79709bb34000-79709bb36000 r--p 00000000 103:02 45759424                  /usr/lib/x86_64-linux-gnu/libz.so.1.3
+79709bb36000-79709bb48000 r-xp 00002000 103:02 45759424                  /usr/lib/x86_64-linux-gnu/libz.so.1.3
+79709bb48000-79709bb4e000 r--p 00014000 103:02 45759424                  /usr/lib/x86_64-linux-gnu/libz.so.1.3
+79709bb4e000-79709bb4f000 r--p 0001a000 103:02 45759424                  /usr/lib/x86_64-linux-gnu/libz.so.1.3
+79709bb4f000-79709bb50000 rw-p 0001b000 103:02 45759424                  /usr/lib/x86_64-linux-gnu/libz.so.1.3
+79709bb50000-79709bb60000 r--p 00000000 103:02 45755207                  /usr/lib/x86_64-linux-gnu/libm.so.6
+79709bb60000-79709bbdf000 r-xp 00010000 103:02 45755207                  /usr/lib/x86_64-linux-gnu/libm.so.6
+79709bbdf000-79709bc37000 r--p 0008f000 103:02 45755207                  /usr/lib/x86_64-linux-gnu/libm.so.6
+79709bc37000-79709bc38000 r--p 000e7000 103:02 45755207                  /usr/lib/x86_64-linux-gnu/libm.so.6
+79709bc38000-79709bc39000 rw-p 000e8000 103:02 45755207                  /usr/lib/x86_64-linux-gnu/libm.so.6
+79709bc44000-79709bc48000 rw-p 00000000 00:00 0 
+79709bc48000-79709bc4f000 r--s 00000000 103:02 45755192                  /usr/lib/x86_64-linux-gnu/gconv/gconv-modules.cache
+79709bc4f000-79709bc51000 rw-p 00000000 00:00 0 
+79709bc51000-79709bc52000 r--p 00000000 103:02 45755201                  /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+79709bc52000-79709bc7d000 r-xp 00001000 103:02 45755201                  /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+79709bc7d000-79709bc87000 r--p 0002c000 103:02 45755201                  /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+79709bc87000-79709bc89000 r--p 00036000 103:02 45755201                  /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+79709bc89000-79709bc8b000 rw-p 00038000 103:02 45755201                  /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+7ffcfdfdb000-7ffcfdffd000 rw-p 00000000 00:00 0                          [stack]
+7ffcfe019000-7ffcfe01d000 r--p 00000000 00:00 0                          [vvar]
+7ffcfe01d000-7ffcfe01f000 r-xp 00000000 00:00 0                          [vdso]
+ffffffffff600000-ffffffffff601000 --xp 00000000 00:00 0                  [vsyscall]

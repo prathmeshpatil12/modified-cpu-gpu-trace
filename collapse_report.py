@@ -45,7 +45,7 @@ def read_csv_records(csv_path):
     Assumes the CSV file has a header row.
     """
     records = []
-    with open(csv_path, newline='') as csvfile:
+    with open(csv_path, newline='', encoding='utf-8', errors='ignore') as csvfile:
         reader = csv.reader(csvfile)
         header = next(reader)  # Skip header row
         for row in reader:
@@ -74,7 +74,8 @@ def process_records(records, scinot):
     if not records:
         raise ValueError("No records found in CSV file.")
 
-    first_timestamp = float(records[0]['timestamp'])
+
+    first_timestamp = datetime.fromisoformat(records[0]['timestamp'].rstrip('Z')).timestamp()
     timestamps = []
     total_power_series = []
     effective_power_series = []
@@ -84,7 +85,7 @@ def process_records(records, scinot):
     callchain_num = defaultdict(int)
 
     for record in records:
-        current_time = float(record['timestamp'])
+        current_time = datetime.fromisoformat(record['timestamp'].rstrip('Z')).timestamp()
         timestamps.append(current_time - first_timestamp)
         
         total_power = float(record['total_power'])
@@ -125,11 +126,11 @@ def write_collapsed_files(target, directory, callchain_power, callchain_num):
       target;callchain value
     """
     # Write energy data (includes both CPU and GPU power)
-    filename_energy = f'{target}_energy.collapsed'
-    file_path_energy = os.path.join(directory, filename_energy)
-    with open(file_path_energy, 'w') as file:
-        for callchain, power in callchain_power.items():
-            file.write(f'{target};{callchain} {power}\n')
+    #filename_energy = f'{target}_energy.collapsed'
+    #file_path_energy = os.path.join(directory, filename_energy)
+    #with open(file_path_energy, 'w') as file:
+    #    for callchain, power in callchain_power.items():
+    #        file.write(f'{target};{callchain} {power}\n')
 
     # Write CPU (number of calls) data
     filename_cpu = f'{target}_cpu.collapsed'
