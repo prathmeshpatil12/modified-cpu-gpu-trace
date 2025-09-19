@@ -472,7 +472,7 @@ int main(int argc, char** argv) {
             if (delta_total > 0)
                 usage = 100.0 * delta_process / delta_total;
             else
-                fprintf(stderr, "No CPU time elapsed\n");
+                // fprintf(stderr, "No CPU time elapsed\n");
 
             prev_process_time = curr_process_time;
             prev_total_time = curr_total_time;

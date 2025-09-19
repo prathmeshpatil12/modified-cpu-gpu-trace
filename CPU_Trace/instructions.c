@@ -88,7 +88,7 @@ int main(int argc, char* argv[]) {
     long delta_total = t2_total - t1_total;
 
     if (delta_total <= 0) {
-        fprintf(stderr, "No CPU time elapsed\n");
+        // fprintf(stderr, "No CPU time elapsed\n");
         return 1;
     }
 

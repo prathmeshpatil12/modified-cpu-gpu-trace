@@ -47,20 +47,27 @@ run_executable() {
 
 # Function to start tracing using dw-pid and turbostat
 start_tracing() {
-    sudo ./CPU_Trace/dw-pid $PID > "./Result/${CGROUP_NAME}/${CGROUP_NAME}.csv" & DW_PID=$!
+    echo "Starting dw-pid tracer for PID $PID..."
+    sudo ./CPU_Trace/dw-pid $PID > "./Result/${CGROUP_NAME}/${CGROUP_NAME}.csv" 2> "./Result/${CGROUP_NAME}/${CGROUP_NAME}_errors.log" & DW_PID=$!
     echo "Tracing executable PID $PID with dw-pid..."
-    sudo /home/prathamesh/.cargo/bin/py-spy record --pid $PID --native --output "./Result/${CGROUP_NAME}/${CGROUP_NAME}_pyspy.svg" & PYSPY_PID=$!
+    
+    # Add a small delay to ensure the target process has started properly
+    sleep 0.5
+    
+    sudo /home/prathmesh/.cargo/bin/py-spy record --pid $PID --native --output "./Result/${CGROUP_NAME}/${CGROUP_NAME}_pyspy.svg" & PYSPY_PID=$!
     echo "Tracing call stacks with modified PySpy..."
     # sudo turbostat --Summary --quiet --show Time_Of_Day_Seconds,CorWatt --interval 0.1 > "./Result/${CGROUP_NAME}/${CGROUP_NAME}_RAPL.csv" & TURBOSTAT_PID=$!
 }
 
 # Function to copy the process maps file into the Result directory
 copy_pid_maps() {
-    cp /proc/"$1"/maps "./Result/${CGROUP_NAME}/${CGROUP_NAME}.maps"
+    sudo cp /proc/"$1"/maps "./Result/${CGROUP_NAME}/${CGROUP_NAME}.maps"
     if [ $? -ne 0 ]; then
         echo "Failed to copy maps for PID $1"
     else
         echo "Copied maps for PID $1 to ./Result/${CGROUP_NAME}/${CGROUP_NAME}.maps"
+        # Change ownership to current user
+        sudo chown $(whoami):$(whoami) "./Result/${CGROUP_NAME}/${CGROUP_NAME}.maps"
     fi
 }
 
@@ -115,14 +122,30 @@ copy_pid_maps "$PID"
 wait $PID
 wait $DW_PID
 wait $PYSPY_PID
+
+# Check if there were any errors during tracing
+if [ -f "./Result/${CGROUP_NAME}/${CGROUP_NAME}_errors.log" ] && [ -s "./Result/${CGROUP_NAME}/${CGROUP_NAME}_errors.log" ]; then
+    echo "Warning: Errors detected during tracing:"
+    cat "./Result/${CGROUP_NAME}/${CGROUP_NAME}_errors.log"
+fi
+
 # Kill the tracing processes after the executable ends
 # sudo kill $DW_PID
 # sudo kill $TURBOSTAT_PID
 
 # Function to process results and generate reports
 process_results() {
-    # Execute collapse_report.py on the generated csv
-    ./collapse_report.py -e 6 "./Result/${CGROUP_NAME}/${CGROUP_NAME}.csv"
+    # Check if collapse_report.py exists and has required dependencies
+    if python3 -c "import matplotlib.pyplot as plt" 2>/dev/null; then
+        echo "Running collapse_report.py..."
+        ./collapse_report.py -e 6 "./Result/${CGROUP_NAME}/${CGROUP_NAME}.csv"
+    else
+        echo "Warning: matplotlib not available. Skipping collapse_report.py"
+        echo "Install with: sudo apt install python3-matplotlib"
+        # Create an empty CPU collapsed file to avoid errors
+        touch "./Result/${CGROUP_NAME}/${CGROUP_NAME}_cpu.collapsed"
+    fi
+    
     echo "Running collapse file generator to combine results from pyspy and energy measurements..."
     python3 collapse_report_generator.py "./Result/${CGROUP_NAME}/${CGROUP_NAME}_pyspy_timestamps.json" "./Result/${CGROUP_NAME}/${CGROUP_NAME}.csv" -o "Result/${CGROUP_NAME}/${CGROUP_NAME}_energy.collapsed"
     
@@ -130,9 +153,13 @@ process_results() {
     echo "Running flamegraph.pl for Energy Flame Graph..."
     ./flamegraph.pl --title "Energy Flame Graph" --countname "microwatts" "./Result/${CGROUP_NAME}/${CGROUP_NAME}_energy.collapsed" > "./Result/${CGROUP_NAME}/${CGROUP_NAME}_energy.svg"
     
-    # Echo before running flamegraph.pl for CPU flame graph
-    echo "Running flamegraph.pl for CPU Flame Graph..."
-    ./flamegraph.pl --title "CPU Flame Graph" --countname "samples" "./Result/${CGROUP_NAME}/${CGROUP_NAME}_cpu.collapsed" > "./Result/${CGROUP_NAME}/${CGROUP_NAME}_cpu.svg"
+    # Echo before running flamegraph.pl for CPU flame graph (only if file exists and has content)
+    if [ -s "./Result/${CGROUP_NAME}/${CGROUP_NAME}_cpu.collapsed" ]; then
+        echo "Running flamegraph.pl for CPU Flame Graph..."
+        ./flamegraph.pl --title "CPU Flame Graph" --countname "samples" "./Result/${CGROUP_NAME}/${CGROUP_NAME}_cpu.collapsed" > "./Result/${CGROUP_NAME}/${CGROUP_NAME}_cpu.svg"
+    else
+        echo "Warning: CPU collapsed file is empty or missing. Skipping CPU flame graph generation."
+    fi
 }
 
 # Run the function to process results after tracing is complete
