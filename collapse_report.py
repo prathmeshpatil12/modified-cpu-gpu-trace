@@ -42,23 +42,60 @@ def read_csv_records(csv_path):
       'total_power'    -> CPU power consumption (string)
       'resource_util'  -> percentage resource utilization (string)
       'gpu_power'      -> GPU power consumption (string)
-    Assumes the CSV file has a header row.
+    Assumes the CSV file has a header row, but skips DEBUG lines.
     """
     records = []
     with open(csv_path, newline='', encoding='utf-8', errors='ignore') as csvfile:
         reader = csv.reader(csvfile)
-        header = next(reader)  # Skip header row
+        
+        # Skip DEBUG lines and find the actual header
+        header_found = False
         for row in reader:
-            if len(row) < 5:
-                continue  # skip malformed rows
-            r = {
-                'timestamp': row[0],
-                'metadata': {'callchain': row[1]},
-                'total_power': row[2],
-                'resource_util': row[3],
-                'gpu_power': row[4]
-            }
-            records.append(r)
+            if row and len(row) > 0:
+                # Skip DEBUG lines
+                if row[0].startswith('DEBUG:'):
+                    continue
+                # Skip GPU_KERNEL and GPU_MEMCPY lines from CUPTI
+                if row[0].startswith('GPU_KERNEL') or row[0].startswith('GPU_MEMCPY'):
+                    continue
+                # Check if this is the header row
+                if row[0].strip() == 'timestamp':
+                    header_found = True
+                    break
+                # If we find data before header, assume no header
+                elif row[0].strip().endswith('Z') and len(row) >= 5:
+                    # This looks like a timestamp, treat as data
+                    break
+        
+        # Process data rows
+        for row in reader:
+            # Skip empty rows
+            if not row or len(row) < 5:
+                continue
+            # Skip DEBUG lines
+            if row[0].startswith('DEBUG:'):
+                continue
+            # Skip GPU activity lines
+            if row[0].startswith('GPU_KERNEL') or row[0].startswith('GPU_MEMCPY'):
+                continue
+            # Skip header if it appears again
+            if row[0].strip() == 'timestamp':
+                continue
+                
+            try:
+                r = {
+                    'timestamp': row[0].strip(),
+                    'metadata': {'callchain': row[1].strip() if len(row) > 1 else ''},
+                    'total_power': row[2].strip() if len(row) > 2 else '0',
+                    'resource_util': row[3].strip() if len(row) > 3 else '0',
+                    'gpu_power': row[4].strip() if len(row) > 4 else '0'
+                }
+                records.append(r)
+            except (IndexError, ValueError) as e:
+                # Skip malformed rows with a warning
+                print(f"Warning: Skipping malformed row: {row[:3]}... Error: {e}")
+                continue
+                
     return records
 
 def process_records(records, scinot):

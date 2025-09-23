@@ -55,6 +55,8 @@ start_tracing() {
     sleep 0.5
     
     sudo /home/prathmesh/.cargo/bin/py-spy record --pid $PID --native --output "./Result/${CGROUP_NAME}/${CGROUP_NAME}_pyspy.svg" & PYSPY_PID=$!
+    sudo chown $(whoami):$(whoami) "./Result/${CGROUP_NAME}/${CGROUP_NAME}_pyspy.svg" 2>/dev/null || true
+    sudo chown $(whoami):$(whoami) "./Result/${CGROUP_NAME}/${CGROUP_NAME}_pyspy_timestamps.json" 2>/dev/null || true
     echo "Tracing call stacks with modified PySpy..."
     # sudo turbostat --Summary --quiet --show Time_Of_Day_Seconds,CorWatt --interval 0.1 > "./Result/${CGROUP_NAME}/${CGROUP_NAME}_RAPL.csv" & TURBOSTAT_PID=$!
 }

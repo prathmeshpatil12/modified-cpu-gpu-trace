@@ -16,8 +16,63 @@
 #include <czmq.h> // Include czmq's zclock functions
 #include <nvml.h>
 #include <time.h>
+#include <cupti.h>
+
+#ifndef CLOCK_REALTIME
+#define CLOCK_REALTIME 0
+#endif
+#ifndef CLOCK_MONOTONIC
+#define CLOCK_MONOTONIC 1
+#endif
 
 #define PAGE_SIZE 4096
+#define MAX_SYMBOL_LENGTH 1024
+
+char* demangle_symbol(const char* mangled_name) {
+    if (!mangled_name) {
+        return NULL;
+    }
+    if (mangled_name[0] != '_' || mangled_name[1] != 'Z') {
+        return strdup(mangled_name);
+    }
+    
+    char command[MAX_SYMBOL_LENGTH + 20];
+    snprintf(command, sizeof(command), "echo '%s' | c++filt", mangled_name);
+    
+    FILE* pipe = popen(command, "r");
+    if (!pipe) {
+        return strdup(mangled_name);
+    }
+    
+    char* demangled = malloc(MAX_SYMBOL_LENGTH);
+    if (!demangled) {
+        pclose(pipe);
+        return strdup(mangled_name);
+    }
+    
+    if (fgets(demangled, MAX_SYMBOL_LENGTH, pipe) != NULL) {
+        size_t len = strlen(demangled);
+        if (len > 0 && demangled[len-1] == '\n') {
+            demangled[len-1] = '\0';
+        }
+        
+        // Replace problematic characters that break CSV parsing
+        for (size_t i = 0; i < len; i++) {
+            if (demangled[i] == ',') {
+                demangled[i] = '|';
+            } else if (demangled[i] == '"') {
+                demangled[i] = '\'';
+            } else if (demangled[i] == '\n' || demangled[i] == '\r') {
+                demangled[i] = ' ';
+            }
+        }
+    } else {
+        strcpy(demangled, mangled_name);
+    }
+    
+    pclose(pipe);
+    return demangled;
+}
 
 // libdw initialization
 static Dwfl_Callbacks callbacks = {
@@ -189,8 +244,16 @@ void append_symbols_from_sample(struct strbuffer* callchains, struct sample* sam
             if (mod)
                 symbol = dwfl_module_addrname(mod, sample->ips[i]);
             if (symbol) {
-                strapp(callchains, symbol);
-                strapp(callchains, ";");
+                // Demangle the symbol before adding it
+                char* demangled = demangle_symbol(symbol);
+                if (demangled) {
+                    strapp(callchains, demangled);
+                    strapp(callchains, ";");
+                    free(demangled);
+                } else {
+                    strapp(callchains, symbol);
+                    strapp(callchains, ";");
+                }
             }
             else {
                 snprintf(ip_buffer, sizeof(ip_buffer), "0x%lx;", sample->ips[i]);
@@ -316,40 +379,113 @@ long get_total_cpu_time() {
     return user + nice + system + irq + softirq;
 }
 
-// double get_gpu_power(unsigned int gpu_count) {
-//     for (unsigned int i = 0; i < gpu_count; i++) {
-//         nvmlDevice_t device;
-//         nvmlReturn_t result = nvmlDeviceGetHandleByIndex(i, &device);
-//         if (result != NVML_SUCCESS) {
-//             fprintf(stderr, "Failed to get device handle\n");
-//             continue;
-//         }
+double get_gpu_power(unsigned int gpu_count) {
+    for (unsigned int i = 0; i < gpu_count; i++) {
+        nvmlDevice_t device;
+        nvmlReturn_t result = nvmlDeviceGetHandleByIndex(i, &device);
+        if (result != NVML_SUCCESS) {
+            fprintf(stderr, "Failed to get device handle\n");
+            continue;
+        }
 
-//         unsigned int power;
-//         result = nvmlDeviceGetPowerUsage(device, &power);
-//         if (result != NVML_SUCCESS) {
-//             fprintf(stderr, "Failed to get power usage for device %u\n", i);
-//             continue;
-//         }
+        unsigned int power;
+        result = nvmlDeviceGetPowerUsage(device, &power);
+        if (result != NVML_SUCCESS) {
+            fprintf(stderr, "Failed to get power usage for device %u\n", i);
+            continue;
+        }
 
-//         return (double)power / 1000.0; // Convert to watts
-//     }
-//     return 0;
-// }
+        return (double)power / 1000.0; // Convert to watts
+    }
+    return 0;
+}
 
 void get_utc_timestamp(char *buffer, size_t buffer_size) {
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
     struct tm tm_utc;
     gmtime_r(&ts.tv_sec, &tm_utc);
-    
-    // Format base time (YYYY-MM-DDTHH:MM:SS)
     strftime(buffer, buffer_size, "%Y-%m-%dT%H:%M:%S", &tm_utc);
-    
-    // Append microseconds (6 digits) and 'Z'
-    int microsec = ts.tv_nsec / 1000; // Convert nanoseconds to microseconds
+    int microsec = ts.tv_nsec / 1000;
     snprintf(buffer + strlen(buffer), buffer_size - strlen(buffer), 
             ".%06dZ", microsec);
+}
+
+// CUPTI buffer handling functions
+void CUPTIAPI bufferRequested(uint8_t **buffer, size_t *size, size_t *maxNumRecords) {
+    printf("DEBUG: CUPTI buffer requested - allocating 16384 bytes\n");
+    fflush(stdout);
+    *buffer = (uint8_t *) malloc(16384);
+    *size = 16384;
+    *maxNumRecords = 0;
+}
+
+void CUPTIAPI bufferCompleted(CUcontext ctx, uint32_t streamId, uint8_t *buffer, size_t size, size_t validSize) {
+    (void)ctx;
+    (void)streamId;
+    (void)size;
+
+    printf("DEBUG: CUPTI buffer completed - processing %zu bytes of valid data\n", validSize);
+    fflush(stdout);
+    
+    CUpti_Activity *record = NULL;
+    int record_count = 0;
+    
+    do {
+        CUptiResult status = cuptiActivityGetNextRecord(buffer, validSize, &record);
+        if (status == CUPTI_SUCCESS) {
+            record_count++;
+            printf("DEBUG: Processing CUPTI record #%d, kind: %d\n", record_count, record->kind);
+            fflush(stdout);
+            
+            switch (record->kind) {
+                case CUPTI_ACTIVITY_KIND_KERNEL: {
+                    CUpti_ActivityKernel4 *kernel = (CUpti_ActivityKernel4 *)record;
+                    printf("DEBUG: Found GPU kernel activity!\n");
+                    
+                    // Demangle the kernel name if it's a C++ mangled name
+                    char* demangled_name = demangle_symbol(kernel->name);
+                    printf("GPU_KERNEL,%llu,%llu,%s\n", 
+                           (unsigned long long)kernel->start, 
+                           (unsigned long long)kernel->end, 
+                           demangled_name ? demangled_name : kernel->name);
+                    
+                    if (demangled_name) {
+                        free(demangled_name);
+                    }
+                    fflush(stdout);
+                    break;
+                }
+                case CUPTI_ACTIVITY_KIND_MEMCPY: {
+                    CUpti_ActivityMemcpy *memcpy = (CUpti_ActivityMemcpy *)record;
+                    printf("DEBUG: Found GPU memcpy activity!\n");
+                    printf("GPU_MEMCPY,%llu,%llu\n", 
+                           (unsigned long long)memcpy->start, 
+                           (unsigned long long)memcpy->end);
+                    fflush(stdout);
+                    break;
+                }
+                default:
+                    printf("DEBUG: Unknown activity kind: %d\n", record->kind);
+                    break;
+            }
+        } else if (status == CUPTI_ERROR_MAX_LIMIT_REACHED) {
+            printf("DEBUG: CUPTI max limit reached\n");
+            fflush(stdout);
+            break;
+        } else {
+            printf("DEBUG: CUPTI status error: %d\n", status);
+            fflush(stdout);
+            break;
+        }
+    } while (1);
+    
+    printf("DEBUG: Processed %d CUPTI records total\n", record_count);
+    fflush(stdout);
+    
+    if (buffer) {
+        free(buffer);
+    }
 }
 
 int main(int argc, char** argv) {
@@ -374,18 +510,18 @@ int main(int argc, char** argv) {
     }
 
     // Initialize NVML
-    // nvmlReturn_t nvmlRet = nvmlInit();
-    // if (nvmlRet != NVML_SUCCESS) {
-    //     fprintf(stderr, "Failed to initialize NVML\n");
-    // }
+    nvmlReturn_t nvmlRet = nvmlInit();
+    if (nvmlRet != NVML_SUCCESS) {
+        fprintf(stderr, "Failed to initialize NVML\n");
+    }
 
     // Get the number of devices
-    // unsigned int gpuCount;
-    // nvmlRet = nvmlDeviceGetCount(&gpuCount);
-    // if (nvmlRet != NVML_SUCCESS) {
-    //     fprintf(stderr, "Failed to get device count\n");
-    //     nvmlShutdown();
-    // }
+    unsigned int gpuCount;
+    nvmlRet = nvmlDeviceGetCount(&gpuCount);
+    if (nvmlRet != NVML_SUCCESS) {
+        fprintf(stderr, "Failed to get device count\n");
+        nvmlShutdown();
+    }
 
     struct perf_event_attr attr = { 0 };
     attr.size = sizeof(struct perf_event_attr);
@@ -414,6 +550,11 @@ int main(int argc, char** argv) {
     ioctl(fd, PERF_EVENT_IOC_RESET, 0);
     ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
 
+    CUptiResult cuptiErr;    
+    cuptiErr = cuptiActivityRegisterCallbacks(bufferRequested, bufferCompleted);
+    cuptiErr = cuptiActivityEnable(CUPTI_ACTIVITY_KIND_KERNEL);
+    cuptiErr = cuptiActivityEnable(CUPTI_ACTIVITY_KIND_MEMCPY);
+
     struct perf_event_mmap_page* buffer_info = buffer;
     Dwfl* dwfl = init_dwfl(pid);
 
@@ -437,6 +578,11 @@ int main(int argc, char** argv) {
         // Sleep for the report interval (converted to milliseconds)
         zclock_sleep(report_sleep_ms);  // Sleep for the specified interval
 
+        // Flush CUPTI buffers to trigger callbacks
+        // printf("DEBUG: Flushing CUPTI buffers...\n");
+        fflush(stdout);
+        cuptiActivityFlushAll(0);
+
         if (kill(pid, 0) == -1) {
             if (errno == ESRCH) {
                 fprintf(stderr, "Process %d has exited. Exiting program.\n", pid);
@@ -458,7 +604,7 @@ int main(int argc, char** argv) {
                                 (curr_ts.tv_nsec - prev_ts.tv_nsec) / 1e9;
         prev_ts = curr_ts;
         double power = (deltaEnergy / 1e6) / interval_seconds;
-        double gpu_power = 0; //get_gpu_power(gpuCount);
+        double gpu_power = get_gpu_power(gpuCount);
 
         long curr_process_time = get_process_time(pid);
         long curr_total_time = get_total_cpu_time();
@@ -481,10 +627,12 @@ int main(int argc, char** argv) {
         char* callchains = get_callchains(buffer_info, dwfl);
         char timestamp[32];
         get_utc_timestamp(timestamp, sizeof(timestamp));
-        if (callchains)
+        if (callchains) {
+            // Callchains are now CSV-safe (commas replaced with pipes)
             printf("%s, %s, %.6f, %.2f, %.6f\n", timestamp, callchains, power, usage, gpu_power);
-        else
+        } else {
             printf("%s, , %.6f, %.2f, %.6f\n", timestamp, power, usage, gpu_power);
+        }
 
         free(callchains);
     }
@@ -493,9 +641,14 @@ int main(int argc, char** argv) {
     munmap(buffer, 2 * PAGE_SIZE);
     close(fd);
     dwfl_end(dwfl);
-    // nvmlRet = nvmlShutdown();
-    // if (nvmlRet != NVML_SUCCESS) {
-    //     fprintf(stderr, "Failed to shutdown NVML\n");
-    // }
+    
+    // Cleanup CUPTI
+    cuptiActivityFlushAll(0);
+    cuptiFinalize();
+    
+    nvmlRet = nvmlShutdown();
+    if (nvmlRet != NVML_SUCCESS) {
+        fprintf(stderr, "Failed to shutdown NVML\n");
+    }
     return EXIT_SUCCESS;
 }
