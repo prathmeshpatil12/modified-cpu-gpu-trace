@@ -1,4 +1,4 @@
-CC = gcc
+CC = g++
 CFLAGS = -Wall -Wextra -g -I/usr/local/cuda/include 
 LDFLAGS = -L/usr/local/cuda/lib64  -lczmq -ldw -lelf -lnvidia-ml -lcupti
 

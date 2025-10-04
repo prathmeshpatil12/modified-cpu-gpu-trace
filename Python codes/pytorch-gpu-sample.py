@@ -22,8 +22,8 @@ inputs = torch.randn(32, 3, 224, 224).to(device)
 labels = torch.randint(0, 1000, (32,)).to(device)
 
 def run_model():
-    for i in range(50):  # More iterations to generate more GPU activity
-        print(f"Iteration {i+1}/50")
+    for i in range(100):  # More iterations to generate more GPU activity
+        print(f"Iteration {i+1}/100")
         outputs = model(inputs)
         loss = criterion(outputs, labels)
         optimizer.zero_grad()

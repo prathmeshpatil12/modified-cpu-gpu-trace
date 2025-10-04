@@ -17,6 +17,7 @@
 #include <nvml.h>
 #include <time.h>
 #include <cupti.h>
+#include <cxxabi.h>
 
 #ifndef CLOCK_REALTIME
 #define CLOCK_REALTIME 0
@@ -29,55 +30,43 @@
 #define MAX_SYMBOL_LENGTH 1024
 
 char* demangle_symbol(const char* mangled_name) {
-    if (!mangled_name) {
-        return NULL;
-    }
-    if (mangled_name[0] != '_' || mangled_name[1] != 'Z') {
-        return strdup(mangled_name);
-    }
-    
-    char command[MAX_SYMBOL_LENGTH + 20];
-    snprintf(command, sizeof(command), "echo '%s' | c++filt", mangled_name);
-    
-    FILE* pipe = popen(command, "r");
-    if (!pipe) {
-        return strdup(mangled_name);
-    }
-    
-    char* demangled = malloc(MAX_SYMBOL_LENGTH);
-    if (!demangled) {
-        pclose(pipe);
-        return strdup(mangled_name);
-    }
-    
-    if (fgets(demangled, MAX_SYMBOL_LENGTH, pipe) != NULL) {
-        size_t len = strlen(demangled);
-        if (len > 0 && demangled[len-1] == '\n') {
-            demangled[len-1] = '\0';
-        }
-        
-        // Replace problematic characters that break CSV parsing
-        for (size_t i = 0; i < len; i++) {
-            if (demangled[i] == ',') {
-                demangled[i] = '|';
-            } else if (demangled[i] == '"') {
-                demangled[i] = '\'';
-            } else if (demangled[i] == '\n' || demangled[i] == '\r') {
-                demangled[i] = ' ';
+    int status;
+    char* demangled = abi::__cxa_demangle(mangled_name, NULL, NULL, &status);
+    if (status == 0 && demangled) {
+        // Success! Now make it CSV-safe by replacing problematic characters
+        char* csv_safe = strdup(demangled);
+        if (csv_safe) {
+            for (char* p = csv_safe; *p; p++) {
+                if (*p == ',') *p = '|';
+                if (*p == '"') *p = '\'';
+                if (*p == '\n') *p = ' ';
+                if (*p == '\r') *p = ' ';
             }
         }
-    } else {
-        strcpy(demangled, mangled_name);
+        free(demangled);
+        return csv_safe;
     }
-    
-    pclose(pipe);
-    return demangled;
+    // Failure, return the original name (also make it CSV-safe)
+    char* safe_original = strdup(mangled_name);
+    if (safe_original) {
+        for (char* p = safe_original; *p; p++) {
+            if (*p == ',') *p = '|';
+            if (*p == '"') *p = '\'';
+            if (*p == '\n') *p = ' ';
+            if (*p == '\r') *p = ' ';
+        }
+    }
+    return safe_original;
 }
+
+
 
 // libdw initialization
 static Dwfl_Callbacks callbacks = {
     .find_elf = dwfl_linux_proc_find_elf,
-    .find_debuginfo = dwfl_standard_find_debuginfo
+    .find_debuginfo = dwfl_standard_find_debuginfo,
+    .section_address = NULL,
+    .debuginfo_path = NULL
 };
 
 Dwfl* init_dwfl(pid_t pid) {
@@ -182,11 +171,11 @@ struct strbuffer* strnew(size_t size)
     if (size == 0)
         return NULL;
 
-    struct strbuffer* strbuffer = malloc(sizeof(struct strbuffer));
+    struct strbuffer* strbuffer = (struct strbuffer*)malloc(sizeof(struct strbuffer));
     if (!strbuffer)
         return NULL;
 
-    strbuffer->buffer = malloc(size);
+    strbuffer->buffer = (char*)malloc(size);
     if (!strbuffer->buffer) {
         free(strbuffer);
         return NULL;
@@ -208,7 +197,7 @@ void strapp(struct strbuffer* strbuffer, const char* to_append)
 
     // Resize if needed
     if (new_size > strbuffer->buffsize) {
-        char* new_buff = realloc(strbuffer->buffer, new_size);
+        char* new_buff = (char*)realloc(strbuffer->buffer, new_size);
         if (!new_buff)
             return; // for error checking, verify strbuffer->currsize changed
 
@@ -229,10 +218,10 @@ char* strfreewrap(struct strbuffer* strbuffer)
 
 void append_symbols_from_sample(struct strbuffer* callchains, struct sample* sample, Dwfl* dwfl)
 {
-    if (sample->nr > 100) {
-        fprintf(stderr, "ERROR: sample at loc %p reported nr %lu\n", (void*)sample, sample->nr);
-        return;
-    }
+    // if (sample->nr > 100) {
+    //     fprintf(stderr, "ERROR: sample at loc %p reported nr %lu\n", (void*)sample, sample->nr);
+    //     return;
+    // }
 
     // Create a stack buffer of size = 20 bytes per ip.
     char ip_buffer[20];
@@ -273,46 +262,69 @@ void append_symbols_from_sample(struct strbuffer* callchains, struct sample* sam
 char* get_callchains(struct perf_event_mmap_page* buffer, Dwfl* dwfl)
 {
     uint64_t head = buffer->data_head;
-    __sync_synchronize();
+    __sync_synchronize(); // Memory barrier to ensure head is read correctly.
 
     if (head == buffer->data_tail)
         return NULL;
 
-    void* buffer_start = (void*)buffer + buffer->data_offset;
+    // Buffer start and a string buffer for our results.
+    char* buffer_start = (char*)buffer + buffer->data_offset;
     struct strbuffer* callchains = strnew(1024);
     if (!callchains) {
-        fprintf(stderr, "ERROR: Memory allocation failed in perf.c:get_callchains\n");
+        fprintf(stderr, "ERROR: Memory allocation failed in get_callchains\n");
         return NULL;
     }
 
-    struct perf_event_header header;
     while (buffer->data_tail < head) {
-        uint64_t relative_loc = buffer->data_tail % buffer->data_size;
-        size_t bytes_remaining = buffer->data_size - relative_loc;
-        size_t header_bytes_remaining = bytes_remaining > sizeof(struct perf_event_header) ?
-            sizeof(struct perf_event_header) : bytes_remaining;
+        uint64_t current_tail = buffer->data_tail;
+        uint64_t relative_loc = current_tail % buffer->data_size;
 
-        memcpy(&header, buffer_start + relative_loc, header_bytes_remaining);
-        memcpy((void*)&header + header_bytes_remaining, buffer_start, sizeof(struct perf_event_header) - header_bytes_remaining);
+        struct perf_event_header header;
+        memcpy(&header, buffer_start + relative_loc, sizeof(header));
 
-        struct sample* sample = buffer_start + relative_loc;
+        void* event_data = buffer_start + relative_loc;
         int used_malloc = 0;
-        if (bytes_remaining < header.size) {
-            sample = malloc(header.size);
+        
+        if ((relative_loc + header.size) > buffer->data_size) {
+            event_data = malloc(header.size);
             used_malloc = 1;
-            memcpy(sample, buffer_start + relative_loc, bytes_remaining);
-            memcpy((void*)sample + bytes_remaining, buffer_start, header.size - bytes_remaining);
+            size_t bytes_remaining = buffer->data_size - relative_loc;
+            memcpy(event_data, buffer_start + relative_loc, bytes_remaining);
+            memcpy((char*)event_data + bytes_remaining, buffer_start, header.size - bytes_remaining);
         }
-        append_symbols_from_sample(callchains, sample, dwfl);
-        if (used_malloc)
-            free(sample);
 
+        // Check the event type before processing it.
+        switch (header.type) {
+            case PERF_RECORD_SAMPLE: {
+                // It's a sample, so we can safely cast and process it.
+                struct sample* sample = (struct sample*)event_data;
+                append_symbols_from_sample(callchains, sample, dwfl);
+                break;
+            }
+            case PERF_RECORD_LOST: {
+                // The kernel lost some samples. You may want to log this.
+                struct { struct perf_event_header header; u64 id; u64 lost; } lost_event;
+                memcpy(&lost_event, event_data, sizeof(lost_event));
+                fprintf(stderr, "Warning: Lost %lu samples\n", lost_event.lost);
+                break;
+            }
+            default:
+                // Ignore other event types like PERF_RECORD_MMAP, PERF_RECORD_THROTTLE, etc.
+                break;
+        }
+
+        if (used_malloc) {
+            free(event_data);
+        }
+        
+        // Advance the tail pointer past this event.
         buffer->data_tail += header.size;
     }
 
-    __sync_synchronize();
+    __sync_synchronize(); // Memory barrier to ensure tail is updated.
     return strfreewrap(callchains);
 }
+
 
 long long get_energy() {
     FILE* fp;
@@ -555,7 +567,7 @@ int main(int argc, char** argv) {
     cuptiErr = cuptiActivityEnable(CUPTI_ACTIVITY_KIND_KERNEL);
     cuptiErr = cuptiActivityEnable(CUPTI_ACTIVITY_KIND_MEMCPY);
 
-    struct perf_event_mmap_page* buffer_info = buffer;
+    struct perf_event_mmap_page* buffer_info = (struct perf_event_mmap_page*)buffer;
     Dwfl* dwfl = init_dwfl(pid);
 
     // Use zclock to get the start time in milliseconds.

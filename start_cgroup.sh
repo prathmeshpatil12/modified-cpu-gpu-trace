@@ -36,7 +36,12 @@ add_pid_to_cgroup() {
 
 # Function to run the executable
 run_executable() {
-    $EXECUTABLE_PATH "$@" &
+    nsys profile \
+        --trace=cuda,nvtx \
+        --output="./Result/${CGROUP_NAME}/${CGROUP_NAME}_nsys_report" \
+        --force-overwrite=true \
+        --stats=true \
+        $EXECUTABLE_PATH "$@" &
     PID=$!
     if [ $? -ne 0 ]; then
         echo "Failed to start the executable"
@@ -54,11 +59,54 @@ start_tracing() {
     # Add a small delay to ensure the target process has started properly
     sleep 0.5
     
-    sudo /home/prathmesh/.cargo/bin/py-spy record --pid $PID --native --output "./Result/${CGROUP_NAME}/${CGROUP_NAME}_pyspy.svg" & PYSPY_PID=$!
+    sudo /home/prathmesh/.cargo/bin/py-spy record --pid $PID --native --output "./Result/${CGROUP_NAME}/${CGROUP_NAME}_pyspy.svg" 2> "./Result/${CGROUP_NAME}/${CGROUP_NAME}_pyspy_errors.log" & PYSPY_PID=$!
     sudo chown $(whoami):$(whoami) "./Result/${CGROUP_NAME}/${CGROUP_NAME}_pyspy.svg" 2>/dev/null || true
     sudo chown $(whoami):$(whoami) "./Result/${CGROUP_NAME}/${CGROUP_NAME}_pyspy_timestamps.json" 2>/dev/null || true
+    sudo chown $(whoami):$(whoami) "./Result/${CGROUP_NAME}/${CGROUP_NAME}_pyspy_errors.log" 2>/dev/null || true
     echo "Tracing call stacks with modified PySpy..."
     # sudo turbostat --Summary --quiet --show Time_Of_Day_Seconds,CorWatt --interval 0.1 > "./Result/${CGROUP_NAME}/${CGROUP_NAME}_RAPL.csv" & TURBOSTAT_PID=$!
+    
+    # Change ownership of nsys output files
+    sudo chown $(whoami):$(whoami) "./Result/${CGROUP_NAME}/${CGROUP_NAME}_nsys_errors.log" 2>/dev/null || true
+    sudo chown $(whoami):$(whoami) "./Result/${CGROUP_NAME}/${CGROUP_NAME}_nsys_report.qdrep" 2>/dev/null || true
+}
+
+process_nsys_results() {
+    local nsys_report="./Result/${CGROUP_NAME}/${CGROUP_NAME}_nsys_report.nsys-rep"
+    
+    if [ -f "$nsys_report" ]; then
+        echo "Found Nsight Systems report: $nsys_report"
+        
+        # Export GPU kernel statistics to SQLite
+        echo "Exporting GPU kernel statistics..."
+        nsys stats --report gpukernsum --output "./Result/${CGROUP_NAME}/${CGROUP_NAME}_gpu_kernels" "$nsys_report" 2>/dev/null || true
+        
+        # Export CUDA API calls
+        echo "Exporting CUDA API statistics..."
+        nsys stats --report cudaapisum --output "./Result/${CGROUP_NAME}/${CGROUP_NAME}_cuda_api" "$nsys_report" 2>/dev/null || true
+        
+        # Export GPU memory operations
+        echo "Exporting GPU memory statistics..."
+        nsys stats --report gpumemtimesum --output "./Result/${CGROUP_NAME}/${CGROUP_NAME}_gpu_memory" "$nsys_report" 2>/dev/null || true
+        
+        # Export to CSV format for easier processing
+        echo "Exporting detailed GPU timeline to CSV..."
+        nsys export --type csv --output "./Result/${CGROUP_NAME}/${CGROUP_NAME}_gpu_timeline.csv" "$nsys_report" 2>/dev/null || true
+        
+        # Change ownership of all generated files
+        sudo chown $(whoami):$(whoami) "./Result/${CGROUP_NAME}/${CGROUP_NAME}"_*.{csv,sqlite,nsys-rep} 2>/dev/null || true
+        
+        echo "Nsight Systems results processed successfully"
+        echo "Generated files:"
+        echo "  - GPU kernels: ${CGROUP_NAME}_gpu_kernels.sqlite"
+        echo "  - CUDA API: ${CGROUP_NAME}_cuda_api.sqlite"
+        echo "  - GPU memory: ${CGROUP_NAME}_gpu_memory.sqlite"
+        echo "  - Timeline CSV: ${CGROUP_NAME}_gpu_timeline.csv"
+        echo "  - Raw report: ${CGROUP_NAME}_nsys_report.nsys-rep"
+    else
+        echo "Warning: Nsight Systems report not found at $nsys_report"
+        echo "GPU profiling may have failed or no GPU activity was detected"
+    fi
 }
 
 # Function to copy the process maps file into the Result directory
@@ -125,10 +173,22 @@ wait $PID
 wait $DW_PID
 wait $PYSPY_PID
 
+# Check if there were any nsys errors
+if [ -f "./Result/${CGROUP_NAME}/${CGROUP_NAME}_nsys_errors.log" ] && [ -s "./Result/${CGROUP_NAME}/${CGROUP_NAME}_nsys_errors.log" ]; then
+    echo "Nsight Systems error summary:"
+    cat "./Result/${CGROUP_NAME}/${CGROUP_NAME}_nsys_errors.log"
+fi
+
 # Check if there were any errors during tracing
 if [ -f "./Result/${CGROUP_NAME}/${CGROUP_NAME}_errors.log" ] && [ -s "./Result/${CGROUP_NAME}/${CGROUP_NAME}_errors.log" ]; then
-    echo "Warning: Errors detected during tracing:"
+    echo "Warning: Errors detected during dw-pid tracing:"
     cat "./Result/${CGROUP_NAME}/${CGROUP_NAME}_errors.log"
+fi
+
+# Check if there were any py-spy errors
+if [ -f "./Result/${CGROUP_NAME}/${CGROUP_NAME}_pyspy_errors.log" ] && [ -s "./Result/${CGROUP_NAME}/${CGROUP_NAME}_pyspy_errors.log" ]; then
+    echo "Py-spy error summary:"
+    cat "./Result/${CGROUP_NAME}/${CGROUP_NAME}_pyspy_errors.log"
 fi
 
 # Kill the tracing processes after the executable ends
@@ -162,6 +222,9 @@ process_results() {
     else
         echo "Warning: CPU collapsed file is empty or missing. Skipping CPU flame graph generation."
     fi
+
+    echo "Processing Nsight Systems results..."
+    process_nsys_results
 }
 
 # Run the function to process results after tracing is complete
