@@ -36,7 +36,18 @@ add_pid_to_cgroup() {
 
 # Function to run the executable
 run_executable() {
-    $EXECUTABLE_PATH "$@" &
+    # Ensure we have the injector path
+    LIBDW="$PWD/CPU_GPU_Trace/libdwcupti.so"
+    if [ ! -f "$LIBDW" ]; then
+        echo "Building libdwcupti.so..."
+        ( cd ./CPU_GPU_Trace && make libdwcupti.so )
+    fi
+
+    # Launch target with CUPTI injector preloaded and CUDA libs visible
+    LD_PRELOAD="$LIBDW" \
+    LD_LIBRARY_PATH="${CUDA_PATH}/lib64:${LD_LIBRARY_PATH}" \
+    DW_CUPTI_LOG="${DW_CUPTI_LOG}" \
+    "$EXECUTABLE_PATH" "$@" &
     PID=$!
     if [ $? -ne 0 ]; then
         echo "Failed to start the executable"
@@ -94,6 +105,13 @@ shift
 # Derive cgroup name from the executable name
 BASENAME=$(basename "$EXECUTABLE_PATH")
 CGROUP_NAME="${BASENAME%.*}"
+
+# CUDA and CUPTI env; set GPU log path inside Result folder
+CUDA_PATH="/usr/local/cuda-12.8"
+mkdir -p "./Result/${CGROUP_NAME}"
+export LD_LIBRARY_PATH="${CUDA_PATH}/lib64:${LD_LIBRARY_PATH}"
+export DW_CUPTI_LOG="./Result/${CGROUP_NAME}/${CGROUP_NAME}_cupti.log"
+: > "$DW_CUPTI_LOG"
 
 CONTROLLER="perf_event"
 

@@ -524,19 +524,19 @@ int main(int argc, char** argv) {
         report_sleep_ms = atoi(argv[3]);
     }
 
-    // Initialize NVML
-    nvmlReturn_t nvmlRet = nvmlInit();
-    if (nvmlRet != NVML_SUCCESS) {
-        fprintf(stderr, "Failed to initialize NVML\n");
-    }
+    // // Initialize NVML
+    // nvmlReturn_t nvmlRet = nvmlInit();
+    // if (nvmlRet != NVML_SUCCESS) {
+    //     fprintf(stderr, "Failed to initialize NVML\n");
+    // }
 
-    // Get the number of devices
-    unsigned int gpuCount;
-    nvmlRet = nvmlDeviceGetCount(&gpuCount);
-    if (nvmlRet != NVML_SUCCESS) {
-        fprintf(stderr, "Failed to get device count\n");
-        nvmlShutdown();
-    }
+    // // Get the number of devices
+    // unsigned int gpuCount;
+    // nvmlRet = nvmlDeviceGetCount(&gpuCount);
+    // if (nvmlRet != NVML_SUCCESS) {
+    //     fprintf(stderr, "Failed to get device count\n");
+    //     nvmlShutdown();
+    // }
 
     struct perf_event_attr attr = { 0 };
     attr.size = sizeof(struct perf_event_attr);
@@ -568,41 +568,41 @@ int main(int argc, char** argv) {
     printf("Initialized perf event for PID %d\n", pid);
     fflush(stdout);
 
-    CUptiResult cuptiErr = CUPTI_SUCCESS;
-    if(cuptiErr != CUPTI_SUCCESS) {
-        fprintf(stderr, "Failed to initialize CUPTI\n");
-        fflush(stderr);
-        exit(EXIT_FAILURE);
-    }
+    // CUptiResult cuptiErr = CUPTI_SUCCESS;
+    // if(cuptiErr != CUPTI_SUCCESS) {
+    //     fprintf(stderr, "Failed to initialize CUPTI\n");
+    //     fflush(stderr);
+    //     exit(EXIT_FAILURE);
+    // }
 
-    cuptiErr = cuptiActivityRegisterCallbacks(bufferRequested, bufferCompleted);
-    if(cuptiErr != CUPTI_SUCCESS) {
-        fprintf(stderr, "Failed to register CUPTI callbacks\n");
-        fflush(stderr);
-        exit(EXIT_FAILURE);
-    }
+    // cuptiErr = cuptiActivityRegisterCallbacks(bufferRequested, bufferCompleted);
+    // if(cuptiErr != CUPTI_SUCCESS) {
+    //     fprintf(stderr, "Failed to register CUPTI callbacks\n");
+    //     fflush(stderr);
+    //     exit(EXIT_FAILURE);
+    // }
 
-    cuptiErr = cuptiActivityEnable(CUPTI_ACTIVITY_KIND_KERNEL);
-    if(cuptiErr != CUPTI_SUCCESS) {
-        fprintf(stderr, "Failed to enable CUPTI kernel activity\n");
-        fflush(stderr);
-        exit(EXIT_FAILURE);
-    }
+    // cuptiErr = cuptiActivityEnable(CUPTI_ACTIVITY_KIND_KERNEL);
+    // if(cuptiErr != CUPTI_SUCCESS) {
+    //     fprintf(stderr, "Failed to enable CUPTI kernel activity\n");
+    //     fflush(stderr);
+    //     exit(EXIT_FAILURE);
+    // }
 
-    cuptiErr = cuptiActivityEnable(CUPTI_ACTIVITY_KIND_MEMCPY);
-    if(cuptiErr != CUPTI_SUCCESS) {
-        fprintf(stderr, "Failed to enable CUPTI memcpy activity\n");
-        fflush(stderr);
-        exit(EXIT_FAILURE);
-    }
+    // cuptiErr = cuptiActivityEnable(CUPTI_ACTIVITY_KIND_MEMCPY);
+    // if(cuptiErr != CUPTI_SUCCESS) {
+    //     fprintf(stderr, "Failed to enable CUPTI memcpy activity\n");
+    //     fflush(stderr);
+    //     exit(EXIT_FAILURE);
+    // }
 
-    // Enable CUDA API tracing
-    cuptiErr = cuptiActivityEnable(CUPTI_ACTIVITY_KIND_RUNTIME);
-    if (cuptiErr != CUPTI_SUCCESS) {
-        fprintf(stderr, "Failed to enable runtime API tracing: %d\n", cuptiErr);
-        fflush(stderr);
-        exit(EXIT_FAILURE);
-    }
+    // // Enable CUDA API tracing
+    // cuptiErr = cuptiActivityEnable(CUPTI_ACTIVITY_KIND_RUNTIME);
+    // if (cuptiErr != CUPTI_SUCCESS) {
+    //     fprintf(stderr, "Failed to enable runtime API tracing: %d\n", cuptiErr);
+    //     fflush(stderr);
+    //     exit(EXIT_FAILURE);
+    // }
 
     struct perf_event_mmap_page* buffer_info = (struct perf_event_mmap_page*)buffer;
     Dwfl* dwfl = init_dwfl(pid);
@@ -630,7 +630,7 @@ int main(int argc, char** argv) {
         // Flush CUPTI buffers to trigger callbacks
         // printf("DEBUG: Flushing CUPTI buffers...\n");
         fflush(stdout);
-        cuptiActivityFlushAll(0);
+        // cuptiActivityFlushAll(0);
 
         if (kill(pid, 0) == -1) {
             if (errno == ESRCH) {
@@ -691,13 +691,13 @@ int main(int argc, char** argv) {
     close(fd);
     dwfl_end(dwfl);
     
-    // Cleanup CUPTI
-    cuptiActivityFlushAll(0);
-    cuptiFinalize();
+    // // Cleanup CUPTI
+    // cuptiActivityFlushAll(0);
+    // cuptiFinalize();
     
-    nvmlRet = nvmlShutdown();
-    if (nvmlRet != NVML_SUCCESS) {
-        fprintf(stderr, "Failed to shutdown NVML\n");
-    }
+    // nvmlRet = nvmlShutdown();
+    // if (nvmlRet != NVML_SUCCESS) {
+    //     fprintf(stderr, "Failed to shutdown NVML\n");
+    // }
     return EXIT_SUCCESS;
 }
