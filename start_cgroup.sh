@@ -34,16 +34,24 @@ add_pid_to_cgroup() {
     fi
 }
 
+
+# Build GPU CUPTI injector (libdwcupti.so) if missing
+build_gpu_injector() {
+    local so="./CPU_GPU_Trace/libdwcupti.so"
+    if [ ! -f "$so" ]; then
+        echo "Building GPU CUPTI injector (libdwcupti.so)..."
+        ( cd ./CPU_GPU_Trace && make libdwcupti.so ) || {
+            echo "Failed to build libdwcupti.so"
+            exit 1
+        }
+    fi
+}
+
 # Function to run the executable
 run_executable() {
-    # Ensure we have the injector path
+    build_gpu_injector
     LIBDW="$PWD/CPU_GPU_Trace/libdwcupti.so"
-    if [ ! -f "$LIBDW" ]; then
-        echo "Building libdwcupti.so..."
-        ( cd ./CPU_GPU_Trace && make libdwcupti.so )
-    fi
 
-    # Launch target with CUPTI injector preloaded and CUDA libs visible
     LD_PRELOAD="$LIBDW" \
     LD_LIBRARY_PATH="${CUDA_PATH}/lib64:${LD_LIBRARY_PATH}" \
     DW_CUPTI_LOG="${DW_CUPTI_LOG}" \
@@ -55,6 +63,7 @@ run_executable() {
         exit 1
     fi
 }
+
 
 # Function to start tracing using dw-pid and turbostat
 start_tracing() {
@@ -155,31 +164,70 @@ fi
 
 # Function to process results and generate reports
 process_results() {
-    # Check if collapse_report.py exists and has required dependencies
+    echo "Post-processing traces for cgroup ${CGROUP_NAME}"
+
+    # 1. CPU collapsed (time) via existing collapse_report.py (if matplotlib present)
     if python3 -c "import matplotlib.pyplot as plt" 2>/dev/null; then
-        echo "Running collapse_report.py..."
+        echo "Generating CPU time collapsed (samples)..."
         ./collapse_report.py -e 6 "./Result/${CGROUP_NAME}/${CGROUP_NAME}.csv"
     else
-        echo "Warning: matplotlib not available. Skipping collapse_report.py"
-        echo "Install with: sudo apt install python3-matplotlib"
-        # Create an empty CPU collapsed file to avoid errors
-        touch "./Result/${CGROUP_NAME}/${CGROUP_NAME}_cpu.collapsed"
+        echo "matplotlib missing, skipping CPU time collapse"
+        : > "./Result/${CGROUP_NAME}/${CGROUP_NAME}_cpu.collapsed"
     fi
-    
-    echo "Running collapse file generator to combine results from pyspy and energy measurements..."
-    python3 collapse_report_generator.py "./Result/${CGROUP_NAME}/${CGROUP_NAME}_pyspy_timestamps.json" "./Result/${CGROUP_NAME}/${CGROUP_NAME}.csv" -o "Result/${CGROUP_NAME}/${CGROUP_NAME}_energy.collapsed"
-    
-    # Echo before running flamegraph.pl for energy flame graph
-    echo "Running flamegraph.pl for Energy Flame Graph..."
-    ./flamegraph.pl --title "Energy Flame Graph" --countname "microwatts" "./Result/${CGROUP_NAME}/${CGROUP_NAME}_energy.collapsed" > "./Result/${CGROUP_NAME}/${CGROUP_NAME}_energy.svg"
-    
-    # Echo before running flamegraph.pl for CPU flame graph (only if file exists and has content)
-    if [ -s "./Result/${CGROUP_NAME}/${CGROUP_NAME}_cpu.collapsed" ]; then
-        echo "Running flamegraph.pl for CPU Flame Graph..."
-        ./flamegraph.pl --title "CPU Flame Graph" --countname "samples" "./Result/${CGROUP_NAME}/${CGROUP_NAME}_cpu.collapsed" > "./Result/${CGROUP_NAME}/${CGROUP_NAME}_cpu.svg"
+
+    # 2. CPU energy collapsed (microjoules)
+    echo "Generating CPU energy collapsed..."
+    python3 collapse_report_generator.py \
+        "./Result/${CGROUP_NAME}/${CGROUP_NAME}_pyspy_timestamps.json" \
+        "./Result/${CGROUP_NAME}/${CGROUP_NAME}.csv" \
+        -o "./Result/${CGROUP_NAME}/${CGROUP_NAME}_energy.collapsed"
+
+    # 3. GPU time + energy collapsed
+    echo "Generating GPU time/energy collapsed..."
+    python3 parse_gpu_traces.py "${CGROUP_NAME}"
+
+    # 4. Combine CPU + GPU energy
+    echo "Combining CPU + GPU energy collapsed..."
+    python3 generate_combined_collapsed_file_for_energy_flamegraph.py "${CGROUP_NAME}"
+
+    # 5. Flamegraphs (require flamegraph.pl)
+    if [ -x ./flamegraph.pl ]; then
+        echo "Rendering flamegraphs..."
+
+        # CPU time samples
+        if [ -s "./Result/${CGROUP_NAME}/${CGROUP_NAME}_cpu.collapsed" ]; then
+            ./flamegraph.pl --title "CPU Time Flame Graph" --countname "samples" \
+              "./Result/${CGROUP_NAME}/${CGROUP_NAME}_cpu.collapsed" > "./Result/${CGROUP_NAME}/${CGROUP_NAME}_cpu_time.svg"
+        fi
+
+        # CPU energy
+        if [ -s "./Result/${CGROUP_NAME}/${CGROUP_NAME}_energy.collapsed" ]; then
+            ./flamegraph.pl --title "CPU Energy Flame Graph" --countname "microjoules" \
+              "./Result/${CGROUP_NAME}/${CGROUP_NAME}_energy.collapsed" > "./Result/${CGROUP_NAME}/${CGROUP_NAME}_cpu_energy.svg"
+        fi
+
+        # GPU time
+        if [ -s "./Result/${CGROUP_NAME}/gpu_time.collapsed" ]; then
+            ./flamegraph.pl --title "GPU Time Flame Graph" --countname "nanoseconds" \
+              "./Result/${CGROUP_NAME}/gpu_time.collapsed" > "./Result/${CGROUP_NAME}/${CGROUP_NAME}_gpu_time.svg"
+        fi
+
+        # GPU energy
+        if [ -s "./Result/${CGROUP_NAME}/gpu_energy.collapsed" ]; then
+            ./flamegraph.pl --title "GPU Energy Flame Graph" --countname "microjoules" \
+              "./Result/${CGROUP_NAME}/gpu_energy.collapsed" > "./Result/${CGROUP_NAME}/${CGROUP_NAME}_gpu_energy.svg"
+        fi
+
+        # Combined energy
+        if [ -s "./Result/${CGROUP_NAME}/combined_energy.collapsed" ]; then
+            ./flamegraph.pl --title "CPU + GPU Energy Flame Graph" --countname "microjoules" \
+              "./Result/${CGROUP_NAME}/combined_energy.collapsed" > "./Result/${CGROUP_NAME}/${CGROUP_NAME}_combined_energy.svg"
+        fi
     else
-        echo "Warning: CPU collapsed file is empty or missing. Skipping CPU flame graph generation."
+        echo "flamegraph.pl not found/executable; skipping SVG generation."
     fi
+
+    echo "Done. Outputs in ./Result/${CGROUP_NAME}"
 }
 
 # Run the function to process results after tracing is complete

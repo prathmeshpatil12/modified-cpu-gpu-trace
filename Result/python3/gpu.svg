@@ -1,0 +1,749 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" width="1200" height="118" onload="init(evt)" viewBox="0 0 1200 118" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<!-- Flame graph stack visualization. See https://github.com/brendangregg/FlameGraph for latest version, and http://www.brendangregg.com/flamegraphs.html for examples. -->
+<!-- NOTES:  -->
+<defs>
+	<linearGradient id="background" y1="0" y2="1" x1="0" x2="0" >
+		<stop stop-color="#eeeeee" offset="5%" />
+		<stop stop-color="#eeeeb0" offset="95%" />
+	</linearGradient>
+</defs>
+<style type="text/css">
+	text { font-family:Verdana; font-size:12px; fill:rgb(0,0,0); }
+	#search, #ignorecase { opacity:0.1; cursor:pointer; }
+	#search:hover, #search.show, #ignorecase:hover, #ignorecase.show { opacity:1; }
+	#subtitle { text-anchor:middle; font-color:rgb(160,160,160); }
+	#title { text-anchor:middle; font-size:17px}
+	#unzoom { cursor:pointer; }
+	#frames > *:hover { stroke:black; stroke-width:0.5; cursor:pointer; }
+	.hide { display:none; }
+	.parent { opacity:0.5; }
+</style>
+<script type="text/ecmascript">
+<![CDATA[
+	"use strict";
+	var details, searchbtn, unzoombtn, matchedtxt, svg, searching, currentSearchTerm, ignorecase, ignorecaseBtn;
+	function init(evt) {
+		details = document.getElementById("details").firstChild;
+		searchbtn = document.getElementById("search");
+		ignorecaseBtn = document.getElementById("ignorecase");
+		unzoombtn = document.getElementById("unzoom");
+		matchedtxt = document.getElementById("matched");
+		svg = document.getElementsByTagName("svg")[0];
+		searching = 0;
+		currentSearchTerm = null;
+
+		// use GET parameters to restore a flamegraphs state.
+		var params = get_params();
+		if (params.x && params.y)
+			zoom(find_group(document.querySelector('[x="' + params.x + '"][y="' + params.y + '"]')));
+                if (params.s) search(params.s);
+	}
+
+	// event listeners
+	window.addEventListener("click", function(e) {
+		var target = find_group(e.target);
+		if (target) {
+			if (target.nodeName == "a") {
+				if (e.ctrlKey === false) return;
+				e.preventDefault();
+			}
+			if (target.classList.contains("parent")) unzoom(true);
+			zoom(target);
+			if (!document.querySelector('.parent')) {
+				// we have basically done a clearzoom so clear the url
+				var params = get_params();
+				if (params.x) delete params.x;
+				if (params.y) delete params.y;
+				history.replaceState(null, null, parse_params(params));
+				unzoombtn.classList.add("hide");
+				return;
+			}
+
+			// set parameters for zoom state
+			var el = target.querySelector("rect");
+			if (el && el.attributes && el.attributes.y && el.attributes._orig_x) {
+				var params = get_params()
+				params.x = el.attributes._orig_x.value;
+				params.y = el.attributes.y.value;
+				history.replaceState(null, null, parse_params(params));
+			}
+		}
+		else if (e.target.id == "unzoom") clearzoom();
+		else if (e.target.id == "search") search_prompt();
+		else if (e.target.id == "ignorecase") toggle_ignorecase();
+	}, false)
+
+	// mouse-over for info
+	// show
+	window.addEventListener("mouseover", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = "Function: " + g_to_text(target);
+	}, false)
+
+	// clear
+	window.addEventListener("mouseout", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = ' ';
+	}, false)
+
+	// ctrl-F for search
+	// ctrl-I to toggle case-sensitive search
+	window.addEventListener("keydown",function (e) {
+		if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) {
+			e.preventDefault();
+			search_prompt();
+		}
+		else if (e.ctrlKey && e.keyCode === 73) {
+			e.preventDefault();
+			toggle_ignorecase();
+		}
+	}, false)
+
+	// functions
+	function get_params() {
+		var params = {};
+		var paramsarr = window.location.search.substr(1).split('&');
+		for (var i = 0; i < paramsarr.length; ++i) {
+			var tmp = paramsarr[i].split("=");
+			if (!tmp[0] || !tmp[1]) continue;
+			params[tmp[0]]  = decodeURIComponent(tmp[1]);
+		}
+		return params;
+	}
+	function parse_params(params) {
+		var uri = "?";
+		for (var key in params) {
+			uri += key + '=' + encodeURIComponent(params[key]) + '&';
+		}
+		if (uri.slice(-1) == "&")
+			uri = uri.substring(0, uri.length - 1);
+		if (uri == '?')
+			uri = window.location.href.split('?')[0];
+		return uri;
+	}
+	function find_child(node, selector) {
+		var children = node.querySelectorAll(selector);
+		if (children.length) return children[0];
+	}
+	function find_group(node) {
+		var parent = node.parentElement;
+		if (!parent) return;
+		if (parent.id == "frames") return node;
+		return find_group(parent);
+	}
+	function orig_save(e, attr, val) {
+		if (e.attributes["_orig_" + attr] != undefined) return;
+		if (e.attributes[attr] == undefined) return;
+		if (val == undefined) val = e.attributes[attr].value;
+		e.setAttribute("_orig_" + attr, val);
+	}
+	function orig_load(e, attr) {
+		if (e.attributes["_orig_"+attr] == undefined) return;
+		e.attributes[attr].value = e.attributes["_orig_" + attr].value;
+		e.removeAttribute("_orig_"+attr);
+	}
+	function g_to_text(e) {
+		var text = find_child(e, "title").firstChild.nodeValue;
+		return (text)
+	}
+	function g_to_func(e) {
+		var func = g_to_text(e);
+		// if there's any manipulation we want to do to the function
+		// name before it's searched, do it here before returning.
+		return (func);
+	}
+	function update_text(e) {
+		var r = find_child(e, "rect");
+		var t = find_child(e, "text");
+		var w = parseFloat(r.attributes.width.value) -3;
+		var txt = find_child(e, "title").textContent.replace(/\([^(]*\)$/,"");
+		t.attributes.x.value = parseFloat(r.attributes.x.value) + 3;
+
+		// Smaller than this size won't fit anything
+		if (w < 2 * 12 * 0.59) {
+			t.textContent = "";
+			return;
+		}
+
+		t.textContent = txt;
+		var sl = t.getSubStringLength(0, txt.length);
+		// check if only whitespace or if we can fit the entire string into width w
+		if (/^ *$/.test(txt) || sl < w)
+			return;
+
+		// this isn't perfect, but gives a good starting point
+		// and avoids calling getSubStringLength too often
+		var start = Math.floor((w/sl) * txt.length);
+		for (var x = start; x > 0; x = x-2) {
+			if (t.getSubStringLength(0, x + 2) <= w) {
+				t.textContent = txt.substring(0, x) + "..";
+				return;
+			}
+		}
+		t.textContent = "";
+	}
+
+	// zoom
+	function zoom_reset(e) {
+		if (e.attributes != undefined) {
+			orig_load(e, "x");
+			orig_load(e, "width");
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_reset(c[i]);
+		}
+	}
+	function zoom_child(e, x, ratio) {
+		if (e.attributes != undefined) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = (parseFloat(e.attributes.x.value) - x - 10) * ratio + 10;
+				if (e.tagName == "text")
+					e.attributes.x.value = find_child(e.parentNode, "rect[x]").attributes.x.value + 3;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseFloat(e.attributes.width.value) * ratio;
+			}
+		}
+
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_child(c[i], x - 10, ratio);
+		}
+	}
+	function zoom_parent(e) {
+		if (e.attributes) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = 10;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseInt(svg.width.baseVal.value) - (10 * 2);
+			}
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_parent(c[i]);
+		}
+	}
+	function zoom(node) {
+		var attr = find_child(node, "rect").attributes;
+		var width = parseFloat(attr.width.value);
+		var xmin = parseFloat(attr.x.value);
+		var xmax = parseFloat(xmin + width);
+		var ymin = parseFloat(attr.y.value);
+		var ratio = (svg.width.baseVal.value - 2 * 10) / width;
+
+		// XXX: Workaround for JavaScript float issues (fix me)
+		var fudge = 0.0001;
+
+		unzoombtn.classList.remove("hide");
+
+		var el = document.getElementById("frames").children;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var a = find_child(e, "rect").attributes;
+			var ex = parseFloat(a.x.value);
+			var ew = parseFloat(a.width.value);
+			var upstack;
+			// Is it an ancestor
+			if (1 == 0) {
+				upstack = parseFloat(a.y.value) > ymin;
+			} else {
+				upstack = parseFloat(a.y.value) < ymin;
+			}
+			if (upstack) {
+				// Direct ancestor
+				if (ex <= xmin && (ex+ew+fudge) >= xmax) {
+					e.classList.add("parent");
+					zoom_parent(e);
+					update_text(e);
+				}
+				// not in current path
+				else
+					e.classList.add("hide");
+			}
+			// Children maybe
+			else {
+				// no common path
+				if (ex < xmin || ex + fudge >= xmax) {
+					e.classList.add("hide");
+				}
+				else {
+					zoom_child(e, xmin, ratio);
+					update_text(e);
+				}
+			}
+		}
+		search();
+	}
+	function unzoom(dont_update_text) {
+		unzoombtn.classList.add("hide");
+		var el = document.getElementById("frames").children;
+		for(var i = 0; i < el.length; i++) {
+			el[i].classList.remove("parent");
+			el[i].classList.remove("hide");
+			zoom_reset(el[i]);
+			if(!dont_update_text) update_text(el[i]);
+		}
+		search();
+	}
+	function clearzoom() {
+		unzoom();
+
+		// remove zoom state
+		var params = get_params();
+		if (params.x) delete params.x;
+		if (params.y) delete params.y;
+		history.replaceState(null, null, parse_params(params));
+	}
+
+	// search
+	function toggle_ignorecase() {
+		ignorecase = !ignorecase;
+		if (ignorecase) {
+			ignorecaseBtn.classList.add("show");
+		} else {
+			ignorecaseBtn.classList.remove("show");
+		}
+		reset_search();
+		search();
+	}
+	function reset_search() {
+		var el = document.querySelectorAll("#frames rect");
+		for (var i = 0; i < el.length; i++) {
+			orig_load(el[i], "fill")
+		}
+		var params = get_params();
+		delete params.s;
+		history.replaceState(null, null, parse_params(params));
+	}
+	function search_prompt() {
+		if (!searching) {
+			var term = prompt("Enter a search term (regexp " +
+			    "allowed, eg: ^ext4_)"
+			    + (ignorecase ? ", ignoring case" : "")
+			    + "\nPress Ctrl-i to toggle case sensitivity", "");
+			if (term != null) search(term);
+		} else {
+			reset_search();
+			searching = 0;
+			currentSearchTerm = null;
+			searchbtn.classList.remove("show");
+			searchbtn.firstChild.nodeValue = "Search"
+			matchedtxt.classList.add("hide");
+			matchedtxt.firstChild.nodeValue = ""
+		}
+	}
+	function search(term) {
+		if (term) currentSearchTerm = term;
+
+		var re = new RegExp(currentSearchTerm, ignorecase ? 'i' : '');
+		var el = document.getElementById("frames").children;
+		var matches = new Object();
+		var maxwidth = 0;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var func = g_to_func(e);
+			var rect = find_child(e, "rect");
+			if (func == null || rect == null)
+				continue;
+
+			// Save max width. Only works as we have a root frame
+			var w = parseFloat(rect.attributes.width.value);
+			if (w > maxwidth)
+				maxwidth = w;
+
+			if (func.match(re)) {
+				// highlight
+				var x = parseFloat(rect.attributes.x.value);
+				orig_save(rect, "fill");
+				rect.attributes.fill.value = "rgb(230,0,230)";
+
+				// remember matches
+				if (matches[x] == undefined) {
+					matches[x] = w;
+				} else {
+					if (w > matches[x]) {
+						// overwrite with parent
+						matches[x] = w;
+					}
+				}
+				searching = 1;
+			}
+		}
+		if (!searching)
+			return;
+		var params = get_params();
+		params.s = currentSearchTerm;
+		history.replaceState(null, null, parse_params(params));
+
+		searchbtn.classList.add("show");
+		searchbtn.firstChild.nodeValue = "Reset Search";
+
+		// calculate percent matched, excluding vertical overlap
+		var count = 0;
+		var lastx = -1;
+		var lastw = 0;
+		var keys = Array();
+		for (k in matches) {
+			if (matches.hasOwnProperty(k))
+				keys.push(k);
+		}
+		// sort the matched frames by their x location
+		// ascending, then width descending
+		keys.sort(function(a, b){
+			return a - b;
+		});
+		// Step through frames saving only the biggest bottom-up frames
+		// thanks to the sort order. This relies on the tree property
+		// where children are always smaller than their parents.
+		var fudge = 0.0001;	// JavaScript floating point
+		for (var k in keys) {
+			var x = parseFloat(keys[k]);
+			var w = matches[keys[k]];
+			if (x >= lastx + lastw - fudge) {
+				count += w;
+				lastx = x;
+				lastw = w;
+			}
+		}
+		// display matched percent
+		matchedtxt.classList.remove("hide");
+		var pct = 100 * count / maxwidth;
+		if (pct != 100) pct = pct.toFixed(1)
+		matchedtxt.firstChild.nodeValue = "Matched: " + pct + "%";
+	}
+]]>
+</script>
+<rect x="0.0" y="0" width="1200.0" height="118.0" fill="url(#background)"  />
+<text id="title" x="600.00" y="24" >GPU Kernels</text>
+<text id="details" x="10.00" y="101" > </text>
+<text id="unzoom" x="10.00" y="24" class="hide">Reset Zoom</text>
+<text id="search" x="1090.00" y="24" >Search</text>
+<text id="ignorecase" x="1174.00" y="24" >ic</text>
+<text id="matched" x="1090.00" y="101" > </text>
+<g id="frames">
+<g >
+<title>sm86_xmma_fprop_implicit_gemm_tf32f32_tf32f32_f32_nhwckrsc_nchw_tilesize128x128x32_stage3_warpsize2x2x1_g1_tensor16x8x8_alignc4_execute_kernel__5x_cudnn (GPU) (112,817,519 samples, 2.10%)</title><rect x="280.1" y="68" width="24.8" height="15.0" fill="rgb(213,38,9)" rx="2" ry="2" />
+<text  x="283.12" y="78.5" >s..</text>
+</g>
+<g >
+<title> (GPU) (39,131,081 samples, 0.73%)</title><rect x="1171.6" y="68" width="8.6" height="15.0" fill="rgb(209,18,4)" rx="2" ry="2" />
+<text  x="1174.64" y="78.5" ></text>
+</g>
+<g >
+<title>_ZN2at6native57_GLOBAL__N__e658eeb9_24_ForeachBinaryOpScalar_cu_86b9896c25multi_tensor_apply_kernelINS1_18TensorListMetadataILi1EEENS1_21BinaryOpScalarFunctorIfLi1ELi1ELi0EEEJSt10multipliesIfEfEEEvT_T0_DpT1_ (GPU) (83,007,282 samples, 1.54%)</title><rect x="798.5" y="68" width="18.2" height="15.0" fill="rgb(214,44,10)" rx="2" ry="2" />
+<text  x="801.50" y="78.5" ></text>
+</g>
+<g >
+<title>_ZN2at6native52_GLOBAL__N__e57809e0_19_DilatedMaxPool2d_cu_6258b57422max_pool_backward_nchwIffEEvPKT_PKlillliiiiiiiiiiPS3_ (GPU) (89,997,822 samples, 1.67%)</title><rect x="760.7" y="68" width="19.7" height="15.0" fill="rgb(254,227,54)" rx="2" ry="2" />
+<text  x="763.65" y="78.5" ></text>
+</g>
+<g >
+<title>_Z17wgrad_alg0_engineIfLi128ELi6ELi8ELi3ELi3ELi5ELb0ELi512EEviiiPKT_iPS0_S2_18kernel_grad_paramsyifiiii (GPU) (10,048,546 samples, 0.19%)</title><rect x="421.0" y="68" width="2.2" height="15.0" fill="rgb(250,210,50)" rx="2" ry="2" />
+<text  x="424.02" y="78.5" ></text>
+</g>
+<g >
+<title>sm86_xmma_wgrad_implicit_gemm_indexed_tf32f32_tf32f32_f32_nhwckrsc_nhwc_tilesize64x64x64_stage3_warpsize2x2x1_g1_tensor16x8x8_execute_kernel__5x_cudnn (GPU) (264,420,370 samples, 4.92%)</title><rect x="304.9" y="68" width="58.1" height="15.0" fill="rgb(223,85,20)" rx="2" ry="2" />
+<text  x="307.89" y="78.5" >sm86_x..</text>
+</g>
+<g >
+<title>cudaDeviceGetStreamPriorityRange_v5050 (103,855,095 samples, 1.93%)</title><rect x="65.2" y="52" width="22.8" height="15.0" fill="rgb(245,188,45)" rx="2" ry="2" />
+<text  x="68.16" y="62.5" >c..</text>
+</g>
+<g >
+<title>cudaPeekAtLastError_v3020 (1,442,247 samples, 0.03%)</title><rect x="1189.3" y="52" width="0.3" height="15.0" fill="rgb(233,129,30)" rx="2" ry="2" />
+<text  x="1192.31" y="62.5" ></text>
+</g>
+<g >
+<title>cudaGetDevice_v3020 (378,018,978 samples, 7.03%)</title><rect x="112.9" y="52" width="83.0" height="15.0" fill="rgb(212,33,8)" rx="2" ry="2" />
+<text  x="115.90" y="62.5" >cudaGetDe..</text>
+</g>
+<g >
+<title>_ZN17cutlass__5x_cudnn6KernelI65cutlass_tensorop_s1688fprop_optimized_tf32_64x64_32x5_nhwc_align4EEvNT_6ParamsE (GPU) (83,773,786 samples, 1.56%)</title><rect x="428.1" y="68" width="18.4" height="15.0" fill="rgb(232,126,30)" rx="2" ry="2" />
+<text  x="431.13" y="78.5" ></text>
+</g>
+<g >
+<title>sm86_xmma_fprop_implicit_gemm_tf32f32_tf32f32_f32_nhwckrsc_nchw_tilesize128x128x16_stage6_warpsize2x2x1_g1_tensor16x8x8_alignc4_execute_kernel__5x_cudnn (GPU) (101,327,135 samples, 1.89%)</title><rect x="257.9" y="68" width="22.2" height="15.0" fill="rgb(231,120,28)" rx="2" ry="2" />
+<text  x="260.87" y="78.5" >s..</text>
+</g>
+<g >
+<title>_ZN2at6native55_GLOBAL__N__d25d856e_22_ForeachBinaryOpList_cu_a911ec4325multi_tensor_apply_kernelINS1_18TensorListMetadataILi2EEENS1_24BinaryOpListAlphaFunctorIfLi2ELi2ELi0EEEJSt4plusIfEfEEEvT_T0_DpT1_ (GPU) (82,365,007 samples, 1.53%)</title><rect x="780.4" y="68" width="18.1" height="15.0" fill="rgb(210,23,5)" rx="2" ry="2" />
+<text  x="783.42" y="78.5" ></text>
+</g>
+<g >
+<title>cuDeviceGetAttribute (9,966,316 samples, 0.19%)</title><rect x="10.0" y="52" width="2.2" height="15.0" fill="rgb(209,20,4)" rx="2" ry="2" />
+<text  x="13.03" y="62.5" ></text>
+</g>
+<g >
+<title>cudaMemsetAsync_v3020 (34,057,851 samples, 0.63%)</title><rect x="1180.2" y="52" width="7.5" height="15.0" fill="rgb(253,224,53)" rx="2" ry="2" />
+<text  x="1183.23" y="62.5" ></text>
+</g>
+<g >
+<title>_ZN2at6native13reduce_kernelILi128ELi4ENS0_8ReduceOpIfNS0_14func_wrapper_tIfZNS0_11sum_functorIfffEclERNS_14TensorIteratorEEUlffE_EEjfLi4ELi4EEEEEvT1_ (GPU) (17,690,107 samples, 0.33%)</title><rect x="582.3" y="68" width="3.9" height="15.0" fill="rgb(252,217,52)" rx="2" ry="2" />
+<text  x="585.29" y="78.5" ></text>
+</g>
+<g >
+<title>_ZN2at6native29vectorized_elementwise_kernelILi4EZZZNS0_49_GLOBAL__N__d2ba64fb_16_TensorCompare_cu_71e06f4e19launch_clamp_scalarERNS_18TensorIteratorBaseEN3c106ScalarES6_NS0_6detail11ClampLimitsEENKUlvE_clEvENKUlvE5_clEvEUlfE_St5arrayIPcLm2EEEEviT0_T1_ (GPU) (192,698,822 samples, 3.59%)</title><rect x="709.4" y="68" width="42.3" height="15.0" fill="rgb(252,219,52)" rx="2" ry="2" />
+<text  x="712.39" y="78.5" >_ZN..</text>
+</g>
+<g >
+<title>ampere_sgemm_64x32_sliced1x4_tn (GPU) (2,363,350 samples, 0.04%)</title><rect x="1161.0" y="68" width="0.5" height="15.0" fill="rgb(233,128,30)" rx="2" ry="2" />
+<text  x="1163.98" y="78.5" ></text>
+</g>
+<g >
+<title>all (5,374,019,519 samples, 100%)</title><rect x="10.0" y="36" width="1180.0" height="15.0" fill="rgb(213,39,9)" rx="2" ry="2" />
+<text  x="13.00" y="46.5" ></text>
+</g>
+<g >
+<title>cudaFuncGetAttributes_v3020 (76,790,692 samples, 1.43%)</title><rect x="89.1" y="52" width="16.8" height="15.0" fill="rgb(211,30,7)" rx="2" ry="2" />
+<text  x="92.06" y="62.5" ></text>
+</g>
+<g >
+<title>cudaGetLastError_v3020 (19,064,934 samples, 0.35%)</title><rect x="195.9" y="52" width="4.2" height="15.0" fill="rgb(254,228,54)" rx="2" ry="2" />
+<text  x="198.93" y="62.5" ></text>
+</g>
+<g >
+<title>_ZN43_GLOBAL__N__b6de9c8c_10_SoftMax_cu_9f978f6320softmax_warp_forwardIfffLi10ELb1ELb0EEEvPT0_PKT_iiiPKbib (GPU) (25,448,617 samples, 0.47%)</title><rect x="816.7" y="68" width="5.6" height="15.0" fill="rgb(237,151,36)" rx="2" ry="2" />
+<text  x="819.73" y="78.5" ></text>
+</g>
+<g >
+<title>cudaGetDeviceProperties_v2_v12000 (4,947,685 samples, 0.09%)</title><rect x="111.8" y="52" width="1.1" height="15.0" fill="rgb(210,25,6)" rx="2" ry="2" />
+<text  x="114.81" y="62.5" ></text>
+</g>
+<g >
+<title>cuLibraryUnload (48,005,044 samples, 0.89%)</title><rect x="53.7" y="52" width="10.6" height="15.0" fill="rgb(237,150,36)" rx="2" ry="2" />
+<text  x="56.73" y="62.5" ></text>
+</g>
+<g >
+<title>_ZN5cudnn6detail12dgrad_engineIfLi512ELi6ELi5ELi3ELi3ELi3ELb0EEEviiiPKT_iS4_iPS2_18kernel_grad_paramsyiyifiii (GPU) (43,339,491 samples, 0.81%)</title><rect x="1144.6" y="68" width="9.5" height="15.0" fill="rgb(228,107,25)" rx="2" ry="2" />
+<text  x="1147.61" y="78.5" ></text>
+</g>
+<g >
+<title>cuDevicePrimaryCtxRelease (107,496,256 samples, 2.00%)</title><rect x="26.3" y="52" width="23.6" height="15.0" fill="rgb(252,216,51)" rx="2" ry="2" />
+<text  x="29.33" y="62.5" >c..</text>
+</g>
+<g >
+<title>_ZN5cudnn25bn_fw_tr_1C11_kernel_NCHWIffiLi512ELb1ELi1ELb1EEEv17cudnnTensorStructPKT_S1_PS2_PKT0_S8_S6_S6_PS6_S9_S9_S9_S6_S6_ (GPU) (72,794,078 samples, 1.35%)</title><rect x="1128.6" y="68" width="16.0" height="15.0" fill="rgb(244,182,43)" rx="2" ry="2" />
+<text  x="1131.62" y="78.5" ></text>
+</g>
+<g >
+<title>_ZN5cudnn21bn_bw_1C11_kernel_newIff6float2Li32ELb1ELi1EEEvT0_S2_S2_S2_17cudnnTensorStructPKT_S3_S6_S3_PS4_PKS2_PS2_SA_S9_S9_S2_ (GPU) (100,701,388 samples, 1.87%)</title><rect x="1027.1" y="68" width="22.2" height="15.0" fill="rgb(212,36,8)" rx="2" ry="2" />
+<text  x="1030.15" y="78.5" >_..</text>
+</g>
+<g >
+<title>cudaFree_v3020 (4,983,782 samples, 0.09%)</title><rect x="88.0" y="52" width="1.1" height="15.0" fill="rgb(253,223,53)" rx="2" ry="2" />
+<text  x="90.97" y="62.5" ></text>
+</g>
+<g >
+<title>_ZN14cask__5x_cudnn20computeOffsetsKernelILb0ELb0EEEvNS_20ComputeOffsetsParamsE (GPU) (22,364,279 samples, 0.42%)</title><rect x="423.2" y="68" width="4.9" height="15.0" fill="rgb(239,160,38)" rx="2" ry="2" />
+<text  x="426.22" y="78.5" ></text>
+</g>
+<g >
+<title>_ZN17cutlass__5x_cudnn6KernelI67cutlass_tensorop_s1688dgrad_optimized_tf32_128x128_16x4_nhwc_align4EEvNT_6ParamsE (GPU) (26,984,837 samples, 0.50%)</title><rect x="528.9" y="68" width="5.9" height="15.0" fill="rgb(219,64,15)" rx="2" ry="2" />
+<text  x="531.90" y="78.5" ></text>
+</g>
+<g >
+<title>cudaDeviceGetAttribute_v5000 (3,886,098 samples, 0.07%)</title><rect x="64.3" y="52" width="0.9" height="15.0" fill="rgb(238,153,36)" rx="2" ry="2" />
+<text  x="67.30" y="62.5" ></text>
+</g>
+<g >
+<title>_Z17wgrad_alg0_engineIfLi128ELi6ELi7ELi3ELi3ELi5ELb0ELi512EEviiiPKT_iPS0_S2_18kernel_grad_paramsyifiiii (GPU) (16,994,377 samples, 0.32%)</title><rect x="417.3" y="68" width="3.7" height="15.0" fill="rgb(207,9,2)" rx="2" ry="2" />
+<text  x="420.28" y="78.5" ></text>
+</g>
+<g >
+<title>cudaFuncSetAttribute_v9000 (26,805,540 samples, 0.50%)</title><rect x="105.9" y="52" width="5.9" height="15.0" fill="rgb(251,212,50)" rx="2" ry="2" />
+<text  x="108.92" y="62.5" ></text>
+</g>
+<g >
+<title>_ZN2at6native13reduce_kernelILi512ELi1ENS0_8ReduceOpIfNS0_7MeanOpsIffffEEjfLi4ELi4EEEEEvT1_ (GPU) (26,055,275 samples, 0.48%)</title><rect x="586.2" y="68" width="5.7" height="15.0" fill="rgb(238,155,37)" rx="2" ry="2" />
+<text  x="589.17" y="78.5" ></text>
+</g>
+<g >
+<title>_ZN7cutlass7Kernel2I42cutlass_80_simt_sgemm_128x32_8x5_nn_align1EEvNT_6ParamsE (GPU) (2,308,297 samples, 0.04%)</title><rect x="50.5" y="68" width="0.5" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="53.51" y="78.5" ></text>
+</g>
+<g >
+<title>_ZN17cutlass__5x_cudnn6KernelI66cutlass_tensorop_s1688wgrad_analytic_tf32_256x128_16x3_nhwc_align4EEvNT_6ParamsE (GPU) (210,331,446 samples, 3.91%)</title><rect x="454.9" y="68" width="46.2" height="15.0" fill="rgb(223,83,19)" rx="2" ry="2" />
+<text  x="457.88" y="78.5" >_ZN1..</text>
+</g>
+<g >
+<title>_ZN2at6native18elementwise_kernelILi128ELi2EZNS0_22gpu_kernel_impl_nocastINS0_13BUnaryFunctorIfffNS0_15binary_internal10MulFunctorIfEEEEEEvRNS_18TensorIteratorBaseERKT_EUliE_EEviT1_ (GPU) (28,436,233 samples, 0.53%)</title><rect x="591.9" y="68" width="6.2" height="15.0" fill="rgb(211,27,6)" rx="2" ry="2" />
+<text  x="594.90" y="78.5" ></text>
+</g>
+<g >
+<title>_ZN2at6native29vectorized_elementwise_kernelILi4ENS0_11FillFunctorIfEESt5arrayIPcLm1EEEEviT0_T1_ (GPU) (29,883,754 samples, 0.56%)</title><rect x="620.4" y="68" width="6.6" height="15.0" fill="rgb(224,88,21)" rx="2" ry="2" />
+<text  x="623.39" y="78.5" ></text>
+</g>
+<g >
+<title>cudaHostAlloc_v3020 (1,098,524 samples, 0.02%)</title><rect x="204.0" y="52" width="0.2" height="15.0" fill="rgb(250,210,50)" rx="2" ry="2" />
+<text  x="206.95" y="62.5" ></text>
+</g>
+<g >
+<title>cudaMemcpyAsync_v3020 (39,131,081 samples, 0.73%)</title><rect x="1171.6" y="52" width="8.6" height="15.0" fill="rgb(253,224,53)" rx="2" ry="2" />
+<text  x="1174.64" y="62.5" ></text>
+</g>
+<g >
+<title>_ZN5cudnn19engines_precompiled16nhwcToNchwKernelIfffLb1ELb0EL21cudnnKernelDataType_t0EEEvNS0_18nhwc2nchw_params_tIT1_EEPKT_PT0_ (GPU) (155,699,150 samples, 2.90%)</title><rect x="960.8" y="68" width="34.2" height="15.0" fill="rgb(223,84,20)" rx="2" ry="2" />
+<text  x="963.83" y="78.5" >_Z..</text>
+</g>
+<g >
+<title>cuLibraryLoadData (12,361,664 samples, 0.23%)</title><rect x="51.0" y="52" width="2.7" height="15.0" fill="rgb(212,33,8)" rx="2" ry="2" />
+<text  x="54.02" y="62.5" ></text>
+</g>
+<g >
+<title>_5x_cudnn_ampere_scudnn_128x64_relu_xregs_large_nn_v1 (GPU) (103,301,635 samples, 1.92%)</title><rect x="366.2" y="68" width="22.7" height="15.0" fill="rgb(236,146,34)" rx="2" ry="2" />
+<text  x="369.19" y="78.5" >_..</text>
+</g>
+<g >
+<title>cuDevicePrimaryCtxGetState (64,204,747 samples, 1.19%)</title><rect x="12.2" y="52" width="14.1" height="15.0" fill="rgb(231,123,29)" rx="2" ry="2" />
+<text  x="15.23" y="62.5" ></text>
+</g>
+<g >
+<title>cudaStreamSynchronize_v3020 (1,246,858 samples, 0.02%)</title><rect x="1189.7" y="52" width="0.3" height="15.0" fill="rgb(219,65,15)" rx="2" ry="2" />
+<text  x="1192.73" y="62.5" ></text>
+</g>
+<g >
+<title>sm86_xmma_fprop_implicit_gemm_indexed_tf32f32_tf32f32_f32_nhwckrsc_nchw_tilesize64x32x64_stage4_warpsize2x2x1_g1_tensor16x8x8_alignc4_execute_kernel__5x_cudnn (GPU) (34,255,106 samples, 0.64%)</title><rect x="250.4" y="68" width="7.5" height="15.0" fill="rgb(215,48,11)" rx="2" ry="2" />
+<text  x="253.35" y="78.5" ></text>
+</g>
+<g >
+<title>_Z17wgrad_alg0_engineIfLi128ELi5ELi5ELi3ELi3ELi3ELb0ELi512EEviiiPKT_iPS0_S2_18kernel_grad_paramsyifiiii (GPU) (129,377,523 samples, 2.41%)</title><rect x="388.9" y="68" width="28.4" height="15.0" fill="rgb(239,158,37)" rx="2" ry="2" />
+<text  x="391.88" y="78.5" >_Z..</text>
+</g>
+<g >
+<title>_ZN8cublasLt19splitKreduce_kernelILi32ELi16EiffffLb0EfffLb1ELb0ELb0EEEvNS_18cublasSplitKParamsIT4_EEPKT2_PKT8_PT7_PT3_PKS2_SF_PKT9_S6_PSG_PvlPS2_PiSL_SL_SF_SF_SF_SF_SF_ (GPU) (1,377,125 samples, 0.03%)</title><rect x="1154.1" y="68" width="0.3" height="15.0" fill="rgb(208,18,4)" rx="2" ry="2" />
+<text  x="1157.12" y="78.5" ></text>
+</g>
+<g >
+<title>_ZN2at6native52_GLOBAL__N__e57809e0_19_DilatedMaxPool2d_cu_6258b57421max_pool_forward_nchwIfEEviPKT_llliiiiiiiiiiPS3_Pl (GPU) (33,810,378 samples, 0.63%)</title><rect x="753.2" y="68" width="7.5" height="15.0" fill="rgb(232,125,30)" rx="2" ry="2" />
+<text  x="756.23" y="78.5" ></text>
+</g>
+<g >
+<title>cudaLaunchKernelExC_v11060 (723,040,024 samples, 13.45%)</title><rect x="204.2" y="52" width="158.8" height="15.0" fill="rgb(234,135,32)" rx="2" ry="2" />
+<text  x="207.19" y="62.5" >cudaLaunchKernelExC_..</text>
+</g>
+<g >
+<title>_ZN5cudnn21bn_bw_1C11_kernel_newIff6float2Li512ELb1ELi1EEEvT0_S2_S2_S2_17cudnnTensorStructPKT_S3_S6_S3_PS4_PKS2_PS2_SA_S9_S9_S2_ (GPU) (95,954,072 samples, 1.79%)</title><rect x="1049.3" y="68" width="21.0" height="15.0" fill="rgb(233,130,31)" rx="2" ry="2" />
+<text  x="1052.26" y="78.5" ></text>
+</g>
+<g >
+<title>_ZN17cutlass__5x_cudnn6KernelI79cutlass_tensorop_s1688dgrad_optimized_tf32_128x64_16x6_nhwc_unity_stride_align4EEvNT_6ParamsE (GPU) (156,393,258 samples, 2.91%)</title><rect x="534.8" y="68" width="34.4" height="15.0" fill="rgb(244,183,43)" rx="2" ry="2" />
+<text  x="537.82" y="78.5" >_Z..</text>
+</g>
+<g >
+<title>cuLaunchKernel (2,308,297 samples, 0.04%)</title><rect x="50.5" y="52" width="0.5" height="15.0" fill="rgb(238,155,37)" rx="2" ry="2" />
+<text  x="53.51" y="62.5" ></text>
+</g>
+<g >
+<title>_ZN17cutlass__5x_cudnn6KernelI66cutlass_tensorop_s1688wgrad_optimized_tf32_128x64_16x6_nhwc_align4EEvNT_6ParamsE (GPU) (126,752,363 samples, 2.36%)</title><rect x="501.1" y="68" width="27.8" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="504.06" y="78.5" >_..</text>
+</g>
+<g >
+<title>sm80_xmma_dgrad_implicit_gemm_tf32f32_tf32f32_f32_nhwckrsc_nhwc_tilesize128x128x16_stage4_warpsize2x2x1_g1_tensor16x8x8_execute_kernel__5x_cudnn (GPU) (70,457,424 samples, 1.31%)</title><rect x="204.2" y="68" width="15.5" height="15.0" fill="rgb(239,158,37)" rx="2" ry="2" />
+<text  x="207.19" y="78.5" ></text>
+</g>
+<g >
+<title>_ZN2at6native39_GLOBAL__N__5cd812b1_7_Loss_cu_5b0651e139nll_loss_backward_reduce_cuda_kernel_2dIflEEvPT_PKS3_PKT0_S6_S6_biill (GPU) (1,657,131 samples, 0.03%)</title><rect x="752.9" y="68" width="0.3" height="15.0" fill="rgb(225,92,22)" rx="2" ry="2" />
+<text  x="755.87" y="78.5" ></text>
+</g>
+<g >
+<title>_ZN2at6native39_GLOBAL__N__5cd812b1_7_Loss_cu_5b0651e138nll_loss_forward_reduce_cuda_kernel_2dIfflEEvPT_S4_PKS3_PKT1_S6_bllll (GPU) (5,310,265 samples, 0.10%)</title><rect x="751.7" y="68" width="1.2" height="15.0" fill="rgb(218,61,14)" rx="2" ry="2" />
+<text  x="754.70" y="78.5" ></text>
+</g>
+<g >
+<title>cudaGetSymbolAddress_v3020 (17,464,160 samples, 0.32%)</title><rect x="200.1" y="52" width="3.9" height="15.0" fill="rgb(230,116,27)" rx="2" ry="2" />
+<text  x="203.12" y="62.5" ></text>
+</g>
+<g >
+<title>cuKernelGetFunction (2,203,641 samples, 0.04%)</title><rect x="50.0" y="52" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="53.02" y="62.5" ></text>
+</g>
+<g >
+<title>_ZN17cutlass__5x_cudnn6KernelI66cutlass_tensorop_s1688dgrad_optimized_tf32_128x64_16x6_nhwc_align4EEvNT_6ParamsE (GPU) (38,044,713 samples, 0.71%)</title><rect x="446.5" y="68" width="8.4" height="15.0" fill="rgb(229,110,26)" rx="2" ry="2" />
+<text  x="449.53" y="78.5" ></text>
+</g>
+<g >
+<title>cudaLaunchKernel_v7000 (3,636,793,875 samples, 67.67%)</title><rect x="363.0" y="52" width="798.5" height="15.0" fill="rgb(254,228,54)" rx="2" ry="2" />
+<text  x="365.95" y="62.5" >cudaLaunchKernel_v7000</text>
+</g>
+<g >
+<title>_ZN2at6native29vectorized_elementwise_kernelILi4ENS0_13BinaryFunctorIfffZNS0_67_GLOBAL__N__06c19b41_28_ActivationThresholdKernel_cu_2e82ba61_3249821threshold_kernel_implIfEEvRNS_18TensorIteratorBaseET_S7_EUlffE_EESt5arrayIPcLm3EEEEviT0_T1_ (GPU) (225,862,472 samples, 4.20%)</title><rect x="627.0" y="68" width="49.5" height="15.0" fill="rgb(253,224,53)" rx="2" ry="2" />
+<text  x="629.95" y="78.5" >_ZN2a..</text>
+</g>
+<g >
+<title>_ZN5cudnn21bn_bw_1C11_singlereadIfLi512ELb1ELi1ELi2ELi0EEEvNS_15bn_bw_1C11_argsIT_EE (GPU) (27,452,154 samples, 0.51%)</title><rect x="1070.3" y="68" width="6.1" height="15.0" fill="rgb(253,225,53)" rx="2" ry="2" />
+<text  x="1073.33" y="78.5" ></text>
+</g>
+<g >
+<title>_ZN2at6native29vectorized_elementwise_kernelILi4ENS0_15CUDAFunctor_addIfEESt5arrayIPcLm3EEEEviT0_T1_ (GPU) (149,574,719 samples, 2.78%)</title><rect x="676.5" y="68" width="32.9" height="15.0" fill="rgb(237,151,36)" rx="2" ry="2" />
+<text  x="679.55" y="78.5" >_Z..</text>
+</g>
+<g >
+<title>_ZN5cudnn25bn_fw_tr_1C11_kernel_NCHWIffiLi128ELb1ELi1ELb1EEEv17cudnnTensorStructPKT_S1_PS2_PKT0_S8_S6_S6_PS6_S9_S9_S9_S6_S6_ (GPU) (82,252,299 samples, 1.53%)</title><rect x="1092.6" y="68" width="18.1" height="15.0" fill="rgb(225,92,22)" rx="2" ry="2" />
+<text  x="1095.63" y="78.5" ></text>
+</g>
+<g >
+<title>ampere_sgemm_32x128_nt (GPU) (1,977,863 samples, 0.04%)</title><rect x="1160.5" y="68" width="0.5" height="15.0" fill="rgb(214,44,10)" rx="2" ry="2" />
+<text  x="1163.55" y="78.5" ></text>
+</g>
+<g >
+<title>_ZN5cudnn19engines_precompiled24scalePackedTensor_kernelIffEEvlPT_T0_ (GPU) (16,384,427 samples, 0.30%)</title><rect x="995.0" y="68" width="3.6" height="15.0" fill="rgb(245,187,44)" rx="2" ry="2" />
+<text  x="998.02" y="78.5" ></text>
+</g>
+<g >
+<title>_ZN5cudnn25bn_fw_tr_1C11_kernel_NCHWIffiLi32ELb1ELi1ELb1EEEv17cudnnTensorStructPKT_S1_PS2_PKT0_S8_S6_S6_PS6_S9_S9_S9_S6_S6_ (GPU) (81,653,838 samples, 1.52%)</title><rect x="1110.7" y="68" width="17.9" height="15.0" fill="rgb(224,87,20)" rx="2" ry="2" />
+<text  x="1113.69" y="78.5" ></text>
+</g>
+<g >
+<title>_ZN5cudnn19engines_precompiled16nchwToNhwcKernelIfffLb0ELb1EL21cudnnKernelDataType_t2EEEvNS0_18nchw2nhwc_params_tIT1_EEPKT_PT0_ (GPU) (629,275,586 samples, 11.71%)</title><rect x="822.7" y="68" width="138.1" height="15.0" fill="rgb(210,25,5)" rx="2" ry="2" />
+<text  x="825.66" y="78.5" >_ZN5cudnn19engine..</text>
+</g>
+<g >
+<title>_ZN43_GLOBAL__N__b6de9c8c_10_SoftMax_cu_9f978f6321softmax_warp_backwardIfffLi10ELb1ELb0EEEvPT0_PKT_S5_iiiPKb (GPU) (1,550,483 samples, 0.03%)</title><rect x="822.3" y="68" width="0.4" height="15.0" fill="rgb(222,80,19)" rx="2" ry="2" />
+<text  x="825.32" y="78.5" ></text>
+</g>
+<g >
+<title>_ZN5cudnn21bn_bw_1C11_kernel_newIff6float2Li128ELb1ELi1EEEvT0_S2_S2_S2_17cudnnTensorStructPKT_S3_S6_S3_PS4_PKS2_PS2_SA_S9_S9_S2_ (GPU) (129,943,588 samples, 2.42%)</title><rect x="998.6" y="68" width="28.5" height="15.0" fill="rgb(214,41,9)" rx="2" ry="2" />
+<text  x="1001.61" y="78.5" >_Z..</text>
+</g>
+<g >
+<title>_5x_cudnn_ampere_scudnn_128x128_relu_interior_nn_v1 (GPU) (14,756,801 samples, 0.27%)</title><rect x="363.0" y="68" width="3.2" height="15.0" fill="rgb(225,96,22)" rx="2" ry="2" />
+<text  x="365.95" y="78.5" ></text>
+</g>
+<g >
+<title>cudaMalloc_v3020 (46,148,913 samples, 0.86%)</title><rect x="1161.5" y="52" width="10.1" height="15.0" fill="rgb(221,74,17)" rx="2" ry="2" />
+<text  x="1164.50" y="62.5" ></text>
+</g>
+<g >
+<title>_ZN8cublasLt19splitKreduce_kernelILi32ELi16EiffffLb0EfffLb1ELb1ELb0EEEvNS_18cublasSplitKParamsIT4_EEPKT2_PKT8_PT7_PT3_PKS2_SF_PKT9_S6_PSG_PvlPS2_PiSL_SL_SF_SF_SF_SF_SF_ (GPU) (27,896,521 samples, 0.52%)</title><rect x="1154.4" y="68" width="6.1" height="15.0" fill="rgb(252,218,52)" rx="2" ry="2" />
+<text  x="1157.42" y="78.5" ></text>
+</g>
+<g >
+<title>cudaOccupancyMaxActiveBlocksPerMultiprocessor_v6050 (7,040,318 samples, 0.13%)</title><rect x="1187.8" y="52" width="1.5" height="15.0" fill="rgb(223,83,19)" rx="2" ry="2" />
+<text  x="1190.77" y="62.5" ></text>
+</g>
+<g >
+<title>sm86_xmma_fprop_implicit_gemm_indexed_tf32f32_tf32f32_f32_nhwckrsc_nchw_tilesize128x64x32_stage4_warpsize2x2x1_g1_tensor16x8x8_alignc4_execute_kernel__5x_cudnn (GPU) (139,762,470 samples, 2.60%)</title><rect x="219.7" y="68" width="30.7" height="15.0" fill="rgb(248,201,48)" rx="2" ry="2" />
+<text  x="222.66" y="78.5" >sm..</text>
+</g>
+<g >
+<title>_ZN5cudnn24bn_fw_tr_1C11_singlereadIfLi512ELb1ELi1ELi2ELi0EEEvNS_18bn_fw_tr_1C11_argsIT_EE (GPU) (74,126,832 samples, 1.38%)</title><rect x="1076.4" y="68" width="16.2" height="15.0" fill="rgb(214,44,10)" rx="2" ry="2" />
+<text  x="1079.36" y="78.5" ></text>
+</g>
+<g >
+<title>_ZN2at6native29vectorized_elementwise_kernelILi2ENS0_21CUDAFunctorOnSelf_addIlEESt5arrayIPcLm2EEEEviT0_T1_ (GPU) (101,340,707 samples, 1.89%)</title><rect x="598.1" y="68" width="22.3" height="15.0" fill="rgb(221,77,18)" rx="2" ry="2" />
+<text  x="601.14" y="78.5" >_..</text>
+</g>
+<g >
+<title>_ZN17cutlass__5x_cudnn6KernelI80cutlass_tensorop_s1688dgrad_optimized_tf32_128x128_16x5_nhwc_unity_stride_align4EEvNT_6ParamsE (GPU) (59,789,475 samples, 1.11%)</title><rect x="569.2" y="68" width="13.1" height="15.0" fill="rgb(236,144,34)" rx="2" ry="2" />
+<text  x="572.16" y="78.5" ></text>
+</g>
+</g>
+</svg>

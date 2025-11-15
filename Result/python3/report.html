@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>CPU + GPU Profile: python3</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+    }
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      text-align: center;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .stats {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .stat {
+      text-align: center;
+    }
+    .stat-label {
+      font-size: 0.9em;
+      color: #666;
+      margin-bottom: 5px;
+    }
+    .stat-value {
+      font-size: 1.8em;
+      font-weight: bold;
+      color: #667eea;
+    }
+    .container {
+      display: flex;
+      gap: 20px;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+    }
+    .flamegraph {
+      border: 2px solid #ddd;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .flamegraph-header {
+      padding: 10px;
+      font-weight: bold;
+      text-align: center;
+      color: white;
+    }
+    .cpu { background: #ff6b6b; }
+    .gpu { background: #4ecdc4; }
+    iframe {
+      display: block;
+      border: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🔥 CPU + GPU Profiling Report</h1>
+    <p>Process: python3</p>
+  </div>
+  
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-label">CPU Time</div>
+      <div class="stat-value" style="color: #ff6b6b;">15816 ms</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">GPU Time</div>
+      <div class="stat-value" style="color: #4ecdc4;">3158.55 ms</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Overlap</div>
+      <div class="stat-value" style="color: #f39c12;">20.0%</div>
+    </div>
+  </div>
+  
+  <div class="container">
+    <div class="flamegraph" style="width: 100.0%;">
+      <div class="flamegraph-header cpu">
+        CPU (100.0%)
+      </div>
+      <iframe src="python3_pyspy.svg" width="100%" height="800"></iframe>
+    </div>
+    
+    <div class="flamegraph" style="width: 19.970651452503848%;">
+      <div class="flamegraph-header gpu">
+        GPU (20.0%)
+      </div>
+      <iframe src="gpu.svg" width="100%" height="800"></iframe>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Flamegraph: python3</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+      font-family: sans-serif;
+    }
+    .panel {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      height: 100vh;              /* ensure full-height columns */
+    }
+    .panel object {
+      border: none;
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: contain;        /* scale to fit without clipping */
+      object-position: left top;  /* anchor top-left (avoid vertical centering) */
+      background: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div class="panel" style="width: 83.35371925490446%;">
+    <object type="image/svg+xml" data="python3_pyspy.svg"></object>
+  </div>
+  <div class="panel" style="width: 16.646280745095556%;">
+    <object type="image/svg+xml" data="gpu.svg"></object>
+  </div>
+</body>
+</html>
