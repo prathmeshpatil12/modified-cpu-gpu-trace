@@ -158,6 +158,15 @@ if [ -f "./Result/${CGROUP_NAME}/${CGROUP_NAME}_errors.log" ] && [ -s "./Result/
     cat "./Result/${CGROUP_NAME}/${CGROUP_NAME}_errors.log"
 fi
 
+# Ensure py-spy outputs are owned by the current user and readable
+for f in "./Result/${CGROUP_NAME}/${CGROUP_NAME}_pyspy.svg" \
+         "./Result/${CGROUP_NAME}/${CGROUP_NAME}_pyspy_timestamps.json"; do
+    if [ -f "$f" ]; then
+        sudo chown "$(whoami):$(whoami)" "$f" 2>/dev/null || true
+        chmod a+r "$f" 2>/dev/null || true
+    fi
+done
+
 # Kill the tracing processes after the executable ends
 # sudo kill $DW_PID
 # sudo kill $TURBOSTAT_PID
@@ -188,6 +197,8 @@ process_results() {
 
     # 4. Combine CPU + GPU energy
     echo "Combining CPU + GPU energy collapsed..."
+    python3 get_cpu_gpu_times.py "${CGROUP_NAME}"
+    python3 generate_combined_flamegraph.py "${CGROUP_NAME}"
     python3 generate_combined_collapsed_file_for_energy_flamegraph.py "${CGROUP_NAME}"
 
     # 5. Flamegraphs (require flamegraph.pl)
@@ -208,7 +219,7 @@ process_results() {
 
         # GPU time
         if [ -s "./Result/${CGROUP_NAME}/gpu_time.collapsed" ]; then
-            ./flamegraph.pl --title "GPU Time Flame Graph" --countname "nanoseconds" \
+            ./flamegraph.pl --title "GPU Time Flame Graph" --countname "nanoseconds" --inverted \
               "./Result/${CGROUP_NAME}/gpu_time.collapsed" > "./Result/${CGROUP_NAME}/${CGROUP_NAME}_gpu_time.svg"
         fi
 

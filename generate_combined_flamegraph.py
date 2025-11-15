@@ -3,17 +3,15 @@ import sys
 import os
 from typing import Dict
 
-def load_proportions(filepath: str = 'proportions.json') -> Dict:
-    """Load proportions from JSON file."""
-    if not os.path.exists(filepath):
-        print(f"Error: {filepath} not found. Run get_cpu_gpu_times.py first.")
+def load_proportions(cgroup_name: str, filename: str = 'proportions.json') -> Dict:
+    path = os.path.join('Result', cgroup_name, filename)
+    if not os.path.exists(path):
+        print(f"Error: {path} not found. Run get_cpu_gpu_times.py {cgroup_name} first.")
         sys.exit(1)
-    
-    with open(filepath) as f:
+    with open(path) as f:
         return json.load(f)
 
 def build_html(cgroup_name: str, props: Dict) -> str:
-    """Build simple HTML with equal width panels and percent badges."""
     cpu_pct = props.get('cpu_pct', 0.0)
     gpu_pct = props.get('gpu_pct', 0.0)
 
@@ -72,15 +70,14 @@ def build_html(cgroup_name: str, props: Dict) -> str:
   </div>
   <div class="panel">
     <div class="badge">GPU Percentage of total time consumed: {gpu_pct:.1f}%</div>
-    <object type="image/svg+xml" data="gpu.svg" title="GPU {gpu_pct:.1f}%"></object>
+    <object type="image/svg+xml" data="{cgroup_name}_gpu_time.svg" title="GPU {gpu_pct:.1f}%"></object>
   </div>
 </body>
 </html>
 """
 
 def main(cgroup_name: str = "python3"):
-    """Generate simple proportional HTML."""
-    props = load_proportions()
+    props = load_proportions(cgroup_name)
     html = build_html(cgroup_name, props)
     
     output_path = f'./Result/{cgroup_name}/combined_flamegraph.html'
@@ -89,8 +86,8 @@ def main(cgroup_name: str = "python3"):
     with open(output_path, 'w') as f:
         f.write(html)
     
-    print(f"✅ Combined flamegraph: {output_path}")
-    print(f"   CPU: {props.get('cpu_pct', 0.0):.1f}% | GPU: {props.get('gpu_pct', 0.0):.1f}%")
+    print(f"Combined flamegraph: {output_path}")
+    print(f"CPU: {props.get('cpu_pct', 0.0):.1f}% | GPU: {props.get('gpu_pct', 0.0):.1f}%")
 
 if __name__ == "__main__":
     cgroup_name = sys.argv[1] if len(sys.argv) > 1 else "python3"
