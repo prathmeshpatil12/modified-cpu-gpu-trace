@@ -1,0 +1,439 @@
+00400000-00420000 r--p 00000000 103:05 54791350                          /usr/bin/python3.12
+00420000-00703000 r-xp 00020000 103:05 54791350                          /usr/bin/python3.12
+00703000-00a28000 r--p 00303000 103:05 54791350                          /usr/bin/python3.12
+00a28000-00a29000 r--p 00627000 103:05 54791350                          /usr/bin/python3.12
+00a29000-00ba7000 rw-p 00628000 103:05 54791350                          /usr/bin/python3.12
+00ba7000-00bab000 rw-p 00000000 00:00 0 
+336a5000-38742000 rw-p 00000000 00:00 0                                  [heap]
+200000000-300200000 ---p 00000000 00:00 0 
+707c26600000-707c266b3000 r--p 00000000 103:05 54791329                  /usr/lib/x86_64-linux-gnu/libcrypto.so.3
+707c266b3000-707c269e6000 r-xp 000b3000 103:05 54791329                  /usr/lib/x86_64-linux-gnu/libcrypto.so.3
+707c269e6000-707c26ab1000 r--p 003e6000 103:05 54791329                  /usr/lib/x86_64-linux-gnu/libcrypto.so.3
+707c26ab1000-707c26b0d000 r--p 004b0000 103:05 54791329                  /usr/lib/x86_64-linux-gnu/libcrypto.so.3
+707c26b0d000-707c26b10000 rw-p 0050c000 103:05 54791329                  /usr/lib/x86_64-linux-gnu/libcrypto.so.3
+707c26b10000-707c26b13000 rw-p 00000000 00:00 0 
+707c26be1000-707c26be2000 ---p 00000000 00:00 0 
+707c26be2000-707c273e2000 rw-p 00000000 00:00 0 
+707c273e2000-707c273e3000 ---p 00000000 00:00 0 
+707c273e3000-707c27be3000 rw-p 00000000 00:00 0 
+707c27be3000-707c27be4000 ---p 00000000 00:00 0 
+707c27be4000-707c283e4000 rw-p 00000000 00:00 0 
+707c283e4000-707c283e5000 ---p 00000000 00:00 0 
+707c283e5000-707c28be5000 rw-p 00000000 00:00 0 
+707c28be5000-707c28be6000 ---p 00000000 00:00 0 
+707c28be6000-707c293e6000 rw-p 00000000 00:00 0 
+707c293e6000-707c293e7000 ---p 00000000 00:00 0 
+707c293e7000-707c29be7000 rw-p 00000000 00:00 0 
+707c29be7000-707c29be8000 ---p 00000000 00:00 0 
+707c29be8000-707c2a3e8000 rw-p 00000000 00:00 0 
+707c2a3e8000-707c2a3e9000 ---p 00000000 00:00 0 
+707c2a3e9000-707c2abe9000 rw-p 00000000 00:00 0 
+707c2abe9000-707c2abea000 ---p 00000000 00:00 0 
+707c2abea000-707c2b3ea000 rw-p 00000000 00:00 0 
+707c2b3ea000-707c2b3eb000 ---p 00000000 00:00 0 
+707c2b3eb000-707c2bbeb000 rw-p 00000000 00:00 0 
+707c2bbeb000-707c2bbec000 ---p 00000000 00:00 0 
+707c2bbec000-707c2c3ec000 rw-p 00000000 00:00 0 
+707c2c3ec000-707c2c3ed000 ---p 00000000 00:00 0 
+707c2c3ed000-707c2cbed000 rw-p 00000000 00:00 0 
+707c2cbed000-707c2cbee000 ---p 00000000 00:00 0 
+707c2cbee000-707c2d3ee000 rw-p 00000000 00:00 0 
+707c2d3ee000-707c2d3ef000 ---p 00000000 00:00 0 
+707c2d3ef000-707c2dbef000 rw-p 00000000 00:00 0 
+707c2dbef000-707c2dbf0000 ---p 00000000 00:00 0 
+707c2dbf0000-707c2e3f0000 rw-p 00000000 00:00 0 
+707c2e3f0000-707c2e3f1000 ---p 00000000 00:00 0 
+707c2e3f1000-707c2ebf1000 rw-p 00000000 00:00 0 
+707c2ebf1000-707c2ebf2000 ---p 00000000 00:00 0 
+707c2ebf2000-707c2f3f2000 rw-p 00000000 00:00 0 
+707c2f3f2000-707c2f3f3000 ---p 00000000 00:00 0 
+707c2f3f3000-707c2fbf3000 rw-p 00000000 00:00 0 
+707c2fbf3000-707c2fbf4000 ---p 00000000 00:00 0 
+707c2fbf4000-707c303f4000 rw-p 00000000 00:00 0 
+707c303f4000-707c303f5000 ---p 00000000 00:00 0 
+707c303f5000-707c30bf5000 rw-p 00000000 00:00 0 
+707c30bf5000-707c30bf6000 ---p 00000000 00:00 0 
+707c30bf6000-707c313f6000 rw-p 00000000 00:00 0 
+707c313f6000-707c313f7000 ---p 00000000 00:00 0 
+707c313f7000-707c31bf7000 rw-p 00000000 00:00 0 
+707c31bf7000-707c31bf8000 ---p 00000000 00:00 0 
+707c31bf8000-707c323f8000 rw-p 00000000 00:00 0 
+707c323f8000-707c323f9000 ---p 00000000 00:00 0 
+707c323f9000-707c32bf9000 rw-p 00000000 00:00 0 
+707c32bf9000-707c32bfa000 ---p 00000000 00:00 0 
+707c32bfa000-707c333fa000 rw-p 00000000 00:00 0 
+707c333fa000-707c333fb000 ---p 00000000 00:00 0 
+707c333fb000-707c33bfb000 rw-p 00000000 00:00 0 
+707c33bfb000-707c33bfc000 ---p 00000000 00:00 0 
+707c33bfc000-707c343fc000 rw-p 00000000 00:00 0 
+707c343fc000-707c343fd000 ---p 00000000 00:00 0 
+707c343fd000-707c34bfd000 rw-p 00000000 00:00 0 
+707c34bfd000-707c34bfe000 ---p 00000000 00:00 0 
+707c34bfe000-707c353fe000 rw-p 00000000 00:00 0 
+707c353fe000-707c353ff000 ---p 00000000 00:00 0 
+707c353ff000-707c35bff000 rw-p 00000000 00:00 0 
+707c35bff000-707c35c00000 ---p 00000000 00:00 0 
+707c35c00000-707c36400000 rw-p 00000000 00:00 0 
+707c36400000-707c76400000 rw-p 00000000 00:00 0 
+707c76400000-707c7643b000 r-xp 00000000 103:05 33558391                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/numpy.libs/libquadmath-96973f99-934c22de.so.0.0.0
+707c7643b000-707c7663a000 ---p 0003b000 103:05 33558391                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/numpy.libs/libquadmath-96973f99-934c22de.so.0.0.0
+707c7663a000-707c7663b000 r--p 0003a000 103:05 33558391                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/numpy.libs/libquadmath-96973f99-934c22de.so.0.0.0
+707c7663b000-707c7663e000 rw-p 0003b000 103:05 33558391                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/numpy.libs/libquadmath-96973f99-934c22de.so.0.0.0
+707c76800000-707c76a76000 r-xp 00000000 103:05 33558390                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/numpy.libs/libgfortran-040039e1-0352e75f.so.5.0.0
+707c76a76000-707c76c75000 ---p 00276000 103:05 33558390                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/numpy.libs/libgfortran-040039e1-0352e75f.so.5.0.0
+707c76c75000-707c76c76000 r--p 00275000 103:05 33558390                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/numpy.libs/libgfortran-040039e1-0352e75f.so.5.0.0
+707c76c76000-707c76c78000 rw-p 00276000 103:05 33558390                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/numpy.libs/libgfortran-040039e1-0352e75f.so.5.0.0
+707c76c78000-707c76cb1000 rw-p 0027b000 103:05 33558390                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/numpy.libs/libgfortran-040039e1-0352e75f.so.5.0.0
+707c76e00000-707c76ed0000 r--p 00000000 103:05 33558392                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/numpy.libs/libscipy_openblas64_-8fb3d286.so
+707c76ed0000-707c781d1000 r-xp 000d0000 103:05 33558392                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/numpy.libs/libscipy_openblas64_-8fb3d286.so
+707c781d1000-707c783ba000 r--p 013d1000 103:05 33558392                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/numpy.libs/libscipy_openblas64_-8fb3d286.so
+707c783ba000-707c783c2000 r--p 015b9000 103:05 33558392                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/numpy.libs/libscipy_openblas64_-8fb3d286.so
+707c783c2000-707c783d1000 rw-p 015c1000 103:05 33558392                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/numpy.libs/libscipy_openblas64_-8fb3d286.so
+707c783d1000-707c783da000 rw-p 00000000 00:00 0 
+707c783da000-707c783de000 ---p 015da000 103:05 33558392                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/numpy.libs/libscipy_openblas64_-8fb3d286.so
+707c783de000-707c78515000 rw-p 016ad000 103:05 33558392                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/numpy.libs/libscipy_openblas64_-8fb3d286.so
+707c78600000-707c7862b000 r--p 00000000 103:05 33557459                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/numpy/_core/_multiarray_umath.cpython-312-x86_64-linux-gnu.so
+707c7862b000-707c78e16000 r-xp 0002b000 103:05 33557459                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/numpy/_core/_multiarray_umath.cpython-312-x86_64-linux-gnu.so
+707c78e16000-707c78fa5000 r--p 00816000 103:05 33557459                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/numpy/_core/_multiarray_umath.cpython-312-x86_64-linux-gnu.so
+707c78fa5000-707c78fa8000 r--p 009a5000 103:05 33557459                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/numpy/_core/_multiarray_umath.cpython-312-x86_64-linux-gnu.so
+707c78fa8000-707c78fcb000 rw-p 009a8000 103:05 33557459                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/numpy/_core/_multiarray_umath.cpython-312-x86_64-linux-gnu.so
+707c78fcb000-707c78fe2000 rw-p 00000000 00:00 0 
+707c78fe2000-707c78fed000 rw-p 00a44000 103:05 33557459                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/numpy/_core/_multiarray_umath.cpython-312-x86_64-linux-gnu.so
+707c79000000-707c9e9a6000 r-xp 00000000 103:05 33565653                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cublas/lib/libcublasLt.so.12
+707c9e9a6000-707c9eba6000 ---p 259a6000 103:05 33565653                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cublas/lib/libcublasLt.so.12
+707c9eba6000-707c9ef1f000 r--p 259a6000 103:05 33565653                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cublas/lib/libcublasLt.so.12
+707c9ef1f000-707c9f67a000 rw-p 25d1f000 103:05 33565653                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cublas/lib/libcublasLt.so.12
+707c9f67a000-707ca4772000 rw-p 00000000 00:00 0 
+707ca4772000-707ca4971000 ---p 2b772000 103:05 33565653                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cublas/lib/libcublasLt.so.12
+707ca4971000-707ca5173000 r--p 26571000 103:05 33565653                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cublas/lib/libcublasLt.so.12
+707ca5173000-707ca5372000 ---p 2c173000 103:05 33565653                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cublas/lib/libcublasLt.so.12
+707ca5372000-707cab2f2000 rw-p 26d72000 103:05 33565653                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cublas/lib/libcublasLt.so.12
+707cab300000-707cab400000 rw-p 00000000 00:00 0 
+707cab400000-707cb22ec000 r-xp 00000000 103:05 33565652                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cublas/lib/libcublas.so.12
+707cb22ec000-707cb24ec000 ---p 06eec000 103:05 33565652                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cublas/lib/libcublas.so.12
+707cb24ec000-707cb24f8000 r--p 06eec000 103:05 33565652                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cublas/lib/libcublas.so.12
+707cb24f8000-707cb24ff000 rw-p 06ef8000 103:05 33565652                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cublas/lib/libcublas.so.12
+707cb24ff000-707cb250b000 rw-p 00000000 00:00 0 
+707cb2600000-707cb9439000 r-xp 00000000 103:05 33565400                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/curand/lib/libcurand.so.10
+707cb9439000-707cb9639000 ---p 06e39000 103:05 33565400                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/curand/lib/libcurand.so.10
+707cb9639000-707cb963e000 r--p 06e39000 103:05 33565400                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/curand/lib/libcurand.so.10
+707cb963e000-707cbaa6a000 rw-p 06e3e000 103:05 33565400                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/curand/lib/libcurand.so.10
+707cbaa6a000-707cbb0a2000 rw-p 00000000 00:00 0 
+707cbb100000-707cbb200000 rw-p 00000000 00:00 0 
+707cbb200000-707cd3a54000 r-xp 00000000 103:05 33565368                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/nccl/lib/libnccl.so.2
+707cd3a54000-707cd3c54000 ---p 18854000 103:05 33565368                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/nccl/lib/libnccl.so.2
+707cd3c54000-707cd3c5d000 r--p 18854000 103:05 33565368                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/nccl/lib/libnccl.so.2
+707cd3c5d000-707cd3c72000 rw-p 1885d000 103:05 33565368                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/nccl/lib/libnccl.so.2
+707cd3c72000-707cd3caa000 rw-p 00000000 00:00 0 
+707cd3d00000-707cd3e00000 rw-p 00000000 00:00 0 
+707cd3e00000-707cd4367000 r-xp 00000000 103:05 33567657                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cufft/lib/libcufft.so.11
+707cd4367000-707cd4566000 ---p 00567000 103:05 33567657                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cufft/lib/libcufft.so.11
+707cd4566000-707cd4570000 r--p 00566000 103:05 33567657                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cufft/lib/libcufft.so.11
+707cd4570000-707cd4571000 rw-p 00570000 103:05 33567657                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cufft/lib/libcufft.so.11
+707cd4571000-707cd48cd000 rw-p 00000000 00:00 0 
+707cd48cd000-707cd4acc000 ---p 00acd000 103:05 33567657                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cufft/lib/libcufft.so.11
+707cd4acc000-707cd4bbe000 r--p 006cc000 103:05 33567657                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cufft/lib/libcufft.so.11
+707cd4bbe000-707cd4dbd000 ---p 00dbe000 103:05 33567657                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cufft/lib/libcufft.so.11
+707cd4dbd000-707ce4fc5000 rw-p 007bd000 103:05 33567657                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cufft/lib/libcufft.so.11
+707ce4fc5000-707ce5000000 ---p 111c5000 103:05 33567657                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cufft/lib/libcufft.so.11
+707ce5000000-707ce5001000 rw-p 10a00000 103:05 33567657                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cufft/lib/libcufft.so.11
+707ce5100000-707ce5200000 rw-p 00000000 00:00 0 
+707ce5200000-707cfc284000 r-xp 00000000 103:05 33567633                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cusparse/lib/libcusparse.so.12
+707cfc284000-707cfc484000 ---p 17084000 103:05 33567633                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cusparse/lib/libcusparse.so.12
+707cfc484000-707cfc493000 r--p 17084000 103:05 33567633                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cusparse/lib/libcusparse.so.12
+707cfc493000-707cfc4af000 rw-p 17093000 103:05 33567633                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cusparse/lib/libcusparse.so.12
+707cfc4af000-707cfc4b5000 rw-p 00000000 00:00 0 
+707cfc4b5000-707cfc600000 ---p 172b5000 103:05 33567633                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cusparse/lib/libcusparse.so.12
+707cfc600000-707cfc605000 rw-p 17200000 103:05 33567633                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cusparse/lib/libcusparse.so.12
+707cfc615000-707cfc800000 rw-p 00000000 00:00 0 
+707cfc800000-707cfe7a7000 r--p 00000000 103:05 33560664                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cusparselt/lib/libcusparseLt.so.0
+707cfe7a7000-707d017b5000 r-xp 01fa7000 103:05 33560664                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cusparselt/lib/libcusparseLt.so.0
+707d017b5000-707d15bf1000 r--p 04fb5000 103:05 33560664                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cusparselt/lib/libcusparseLt.so.0
+707d15bf1000-707d15bf2000 ---p 193f1000 103:05 33560664                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cusparselt/lib/libcusparseLt.so.0
+707d15bf2000-707d15d15000 r--p 193f1000 103:05 33560664                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cusparselt/lib/libcusparseLt.so.0
+707d15d15000-707d15d42000 rw-p 19514000 103:05 33560664                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cusparselt/lib/libcusparseLt.so.0
+707d15d42000-707d15fa7000 rw-p 00000000 00:00 0 
+707d15fa7000-707d17970000 rw-p 19542000 103:05 33560664                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cusparselt/lib/libcusparseLt.so.0
+707d17a00000-707d18308000 r--p 00000000 103:05 33578971                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libtorch_cuda.so
+707d18308000-707d1b25d000 r-xp 00908000 103:05 33578971                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libtorch_cuda.so
+707d1b25d000-707d52160000 r--p 0385d000 103:05 33578971                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libtorch_cuda.so
+707d52160000-707d521c3000 r--p 3a75f000 103:05 33578971                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libtorch_cuda.so
+707d521c3000-707d521e3000 rw-p 3a7c2000 103:05 33578971                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libtorch_cuda.so
+707d521e3000-707d52f2d000 rw-p 00000000 00:00 0 
+707d52f2d000-707d535f2000 rw-p 3c18f000 103:05 33578971                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libtorch_cuda.so
+707d53600000-707d54415000 r--p 00000000 103:05 33578970                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so
+707d54415000-707d6478b000 r-xp 00e15000 103:05 33578970                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so
+707d6478b000-707d671df000 r--p 1118b000 103:05 33578970                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so
+707d671df000-707d67439000 r--p 13bdf000 103:05 33578970                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so
+707d67439000-707d674a9000 rw-p 13e39000 103:05 33578970                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so
+707d674a9000-707d675b7000 rw-p 00000000 00:00 0 
+707d675b7000-707d67ab8000 rw-p 195f6000 103:05 33578970                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so
+707d67b00000-707d67c00000 rw-p 00000000 00:00 0 
+707d67c00000-707d67ec5000 r--p 00000000 103:05 33565350                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/nvjitlink/lib/libnvJitLink.so.12
+707d67ec5000-707d6c3c6000 r-xp 002c5000 103:05 33565350                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/nvjitlink/lib/libnvJitLink.so.12
+707d6c3c6000-707d6cceb000 r--p 047c6000 103:05 33565350                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/nvjitlink/lib/libnvJitLink.so.12
+707d6cceb000-707d6ccec000 ---p 050eb000 103:05 33565350                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/nvjitlink/lib/libnvJitLink.so.12
+707d6ccec000-707d6d476000 r--p 050eb000 103:05 33565350                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/nvjitlink/lib/libnvJitLink.so.12
+707d6d476000-707d6d5bf000 rw-p 05875000 103:05 33565350                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/nvjitlink/lib/libnvJitLink.so.12
+707d6d5bf000-707d6d6e8000 rw-p 00000000 00:00 0 
+707d6d700000-707d6d800000 rw-p 00000000 00:00 0 
+707d6d800000-707d6dc1e000 r--p 00000000 103:05 33565563                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cuda_nvrtc/lib/libnvrtc.so.12
+707d6dc1e000-707d724b3000 r-xp 0041e000 103:05 33565563                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cuda_nvrtc/lib/libnvrtc.so.12
+707d724b3000-707d731b1000 r--p 04cb3000 103:05 33565563                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cuda_nvrtc/lib/libnvrtc.so.12
+707d731b1000-707d73983000 r--p 059b0000 103:05 33565563                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cuda_nvrtc/lib/libnvrtc.so.12
+707d73983000-707d73ba5000 rw-p 06182000 103:05 33565563                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cuda_nvrtc/lib/libnvrtc.so.12
+707d73ba5000-707d73f44000 rw-p 00000000 00:00 0 
+707d73f44000-707d73f46000 rw-p 063a4000 103:05 33565563                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cuda_nvrtc/lib/libnvrtc.so.12
+707d74000000-707d74021000 rw-p 00000000 00:00 0 
+707d74021000-707d78000000 ---p 00000000 00:00 0 
+707d78056000-707d78074000 r--p 00000000 103:05 54791331                  /usr/lib/x86_64-linux-gnu/libssl.so.3
+707d78074000-707d780d6000 r-xp 0001e000 103:05 54791331                  /usr/lib/x86_64-linux-gnu/libssl.so.3
+707d780d6000-707d780f2000 r--p 00080000 103:05 54791331                  /usr/lib/x86_64-linux-gnu/libssl.so.3
+707d780f2000-707d780fc000 r--p 0009c000 103:05 54791331                  /usr/lib/x86_64-linux-gnu/libssl.so.3
+707d780fc000-707d78100000 rw-p 000a6000 103:05 54791331                  /usr/lib/x86_64-linux-gnu/libssl.so.3
+707d78100000-707d78400000 rw-p 00000000 00:00 0 
+707d78400000-707d7849d000 r--p 00000000 103:05 54793964                  /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33
+707d7849d000-707d785e5000 r-xp 0009d000 103:05 54793964                  /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33
+707d785e5000-707d7866c000 r--p 001e5000 103:05 54793964                  /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33
+707d7866c000-707d78677000 r--p 0026b000 103:05 54793964                  /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33
+707d78677000-707d7867a000 rw-p 00276000 103:05 54793964                  /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33
+707d7867a000-707d7867e000 rw-p 00000000 00:00 0 
+707d78700000-707d78800000 rw-p 00000000 00:00 0 
+707d78800000-707d78831000 r--p 00000000 103:05 33565421                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cufile/lib/libcufile.so.0
+707d78831000-707d78a2a000 r-xp 00031000 103:05 33565421                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cufile/lib/libcufile.so.0
+707d78a2a000-707d78ad7000 r--p 0022a000 103:05 33565421                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cufile/lib/libcufile.so.0
+707d78ad7000-707d78ad8000 ---p 002d7000 103:05 33565421                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cufile/lib/libcufile.so.0
+707d78ad8000-707d78add000 r--p 002d7000 103:05 33565421                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cufile/lib/libcufile.so.0
+707d78add000-707d78ae6000 rw-p 002dc000 103:05 33565421                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cufile/lib/libcufile.so.0
+707d78ae6000-707d78af1000 rw-p 00000000 00:00 0 
+707d78af1000-707d78afd000 rw-p 00304000 103:05 33565421                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cufile/lib/libcufile.so.0
+707d78b00000-707d78c00000 rw-p 00000000 00:00 0 
+707d78c00000-707d78d7c000 r--p 00000000 103:05 33578974                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libtorch_python.so
+707d78d7c000-707d7990d000 r-xp 0017c000 103:05 33578974                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libtorch_python.so
+707d7990d000-707d79d12000 r--p 00d0d000 103:05 33578974                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libtorch_python.so
+707d79d12000-707d79d32000 r--p 01111000 103:05 33578974                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libtorch_python.so
+707d79d32000-707d79d91000 rw-p 01131000 103:05 33578974                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libtorch_python.so
+707d79d91000-707d79e05000 rw-p 00000000 00:00 0 
+707d79e05000-707d79e94000 rw-p 019a2000 103:05 33578974                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libtorch_python.so
+707d79f00000-707d7a000000 rw-p 00000000 00:00 0 
+707d7a000000-707d80000000 ---p 00000000 00:00 0 
+707d80000000-707d80021000 rw-p 00000000 00:00 0 
+707d80021000-707d84000000 ---p 00000000 00:00 0 
+707d8404f000-707d84200000 rw-p 00000000 00:00 0 
+707d84200000-707d8421e000 r-xp 00000000 103:05 33567689                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cudnn/lib/libcudnn.so.9
+707d8421e000-707d8441d000 ---p 0001e000 103:05 33567689                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cudnn/lib/libcudnn.so.9
+707d8441d000-707d8441e000 r--p 0001d000 103:05 33567689                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cudnn/lib/libcudnn.so.9
+707d8441e000-707d8441f000 rw-p 0001e000 103:05 33567689                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cudnn/lib/libcudnn.so.9
+707d8449a000-707d845a7000 rw-p 00000000 00:00 0 
+707d84600000-707d84637000 r-xp 00000000 103:05 33578967                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libgomp.so.1
+707d84637000-707d84836000 ---p 00037000 103:05 33578967                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libgomp.so.1
+707d84836000-707d84837000 r--p 00036000 103:05 33578967                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libgomp.so.1
+707d84837000-707d84838000 rw-p 00037000 103:05 33578967                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libgomp.so.1
+707d84838000-707d8483d000 rw-p 0003a000 103:05 33578967                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libgomp.so.1
+707d84858000-707d8485c000 r--p 00000000 103:05 54807774                  /usr/lib/python3.12/lib-dynload/_asyncio.cpython-312-x86_64-linux-gnu.so
+707d8485c000-707d84865000 r-xp 00004000 103:05 54807774                  /usr/lib/python3.12/lib-dynload/_asyncio.cpython-312-x86_64-linux-gnu.so
+707d84865000-707d8486a000 r--p 0000d000 103:05 54807774                  /usr/lib/python3.12/lib-dynload/_asyncio.cpython-312-x86_64-linux-gnu.so
+707d8486a000-707d8486b000 r--p 00011000 103:05 54807774                  /usr/lib/python3.12/lib-dynload/_asyncio.cpython-312-x86_64-linux-gnu.so
+707d8486b000-707d8486d000 rw-p 00012000 103:05 54807774                  /usr/lib/python3.12/lib-dynload/_asyncio.cpython-312-x86_64-linux-gnu.so
+707d8486d000-707d848ed000 rw-p 00000000 00:00 0 
+707d848ed000-707d84915000 r--p 00000000 103:05 33578964                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libc10.so
+707d84915000-707d849ad000 r-xp 00028000 103:05 33578964                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libc10.so
+707d849ad000-707d849df000 r--p 000c0000 103:05 33578964                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libc10.so
+707d849df000-707d849e2000 r--p 000f2000 103:05 33578964                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libc10.so
+707d849e2000-707d849e9000 rw-p 000f5000 103:05 33578964                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libc10.so
+707d849e9000-707d849eb000 rw-p 00000000 00:00 0 
+707d849eb000-707d84a00000 rw-p 0013f000 103:05 33578964                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libc10.so
+707d84a00000-707d84aad000 r-xp 00000000 103:05 33565539                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cuda_runtime/lib/libcudart.so.12
+707d84aad000-707d84cad000 ---p 000ad000 103:05 33565539                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cuda_runtime/lib/libcudart.so.12
+707d84cad000-707d84cb1000 r--p 000ad000 103:05 33565539                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cuda_runtime/lib/libcudart.so.12
+707d84cb1000-707d84cb2000 rw-p 000b1000 103:05 33565539                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/nvidia/cuda_runtime/lib/libcudart.so.12
+707d84cb2000-707d84cb4000 rw-p 00000000 00:00 0 
+707d84cb9000-707d84ccc000 r--p 00000000 103:05 54809014                  /usr/lib/python3.12/lib-dynload/_ssl.cpython-312-x86_64-linux-gnu.so
+707d84ccc000-707d84cd9000 r-xp 00013000 103:05 54809014                  /usr/lib/python3.12/lib-dynload/_ssl.cpython-312-x86_64-linux-gnu.so
+707d84cd9000-707d84ce7000 r--p 00020000 103:05 54809014                  /usr/lib/python3.12/lib-dynload/_ssl.cpython-312-x86_64-linux-gnu.so
+707d84ce7000-707d84ce8000 r--p 0002d000 103:05 54809014                  /usr/lib/python3.12/lib-dynload/_ssl.cpython-312-x86_64-linux-gnu.so
+707d84ce8000-707d84cf1000 rw-p 0002e000 103:05 54809014                  /usr/lib/python3.12/lib-dynload/_ssl.cpython-312-x86_64-linux-gnu.so
+707d84d46000-707d84d4a000 r--p 00000000 103:05 54809013                  /usr/lib/python3.12/lib-dynload/_hashlib.cpython-312-x86_64-linux-gnu.so
+707d84d4a000-707d84d50000 r-xp 00004000 103:05 54809013                  /usr/lib/python3.12/lib-dynload/_hashlib.cpython-312-x86_64-linux-gnu.so
+707d84d50000-707d84d54000 r--p 0000a000 103:05 54809013                  /usr/lib/python3.12/lib-dynload/_hashlib.cpython-312-x86_64-linux-gnu.so
+707d84d54000-707d84d55000 r--p 0000d000 103:05 54809013                  /usr/lib/python3.12/lib-dynload/_hashlib.cpython-312-x86_64-linux-gnu.so
+707d84d55000-707d84d57000 rw-p 0000e000 103:05 54809013                  /usr/lib/python3.12/lib-dynload/_hashlib.cpython-312-x86_64-linux-gnu.so
+707d84d57000-707d84d66000 r--p 00000000 103:05 33578965                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libc10_cuda.so
+707d84d66000-707d84db5000 r-xp 0000f000 103:05 33578965                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libc10_cuda.so
+707d84db5000-707d84dcc000 r--p 0005e000 103:05 33578965                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libc10_cuda.so
+707d84dcc000-707d84dcd000 r--p 00075000 103:05 33578965                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libc10_cuda.so
+707d84dcd000-707d84dce000 rw-p 00076000 103:05 33578965                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libc10_cuda.so
+707d84dce000-707d84df4000 rw-p 00000000 00:00 0 
+707d84df4000-707d84dfc000 rw-p 0009c000 103:05 33578965                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libc10_cuda.so
+707d84dfc000-707d84e08000 r--p 00000000 103:05 33578969                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libtorch.so
+707d84e08000-707d84e35000 r-xp 0000c000 103:05 33578969                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libtorch.so
+707d84e35000-707d84e40000 r--p 00039000 103:05 33578969                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libtorch.so
+707d84e40000-707d84e41000 r--p 00044000 103:05 33578969                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libtorch.so
+707d84e41000-707d84e42000 rw-p 00045000 103:05 33578969                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libtorch.so
+707d84e42000-707d84e49000 rw-p 00059000 103:05 33578969                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libtorch.so
+707d84e49000-707d85349000 rw-p 00000000 00:00 0 
+707d85349000-707d8534a000 ---p 00000000 00:00 0 
+707d8534a000-707d85b4a000 rw-p 00000000 00:00 0 
+707d85b4a000-707d85b4b000 ---p 00000000 00:00 0 
+707d85b4b000-707d8634b000 rw-p 00000000 00:00 0 
+707d8634b000-707d8756c000 ---p 00000000 00:00 0 
+707d8756c000-707d877ff000 rw-p 00000000 00:00 0 
+707d877ff000-707d87800000 ---p 00000000 00:00 0 
+707d87800000-707d88000000 rw-p 00000000 00:00 0 
+707d88000000-707d880b0000 r--p 00000000 103:05 55446885                  /usr/local/cuda-12.8/targets/x86_64-linux/lib/libcupti.so.2025.1.1
+707d880b0000-707d884cf000 r-xp 000b0000 103:05 55446885                  /usr/local/cuda-12.8/targets/x86_64-linux/lib/libcupti.so.2025.1.1
+707d884cf000-707d88621000 r--p 004cf000 103:05 55446885                  /usr/local/cuda-12.8/targets/x86_64-linux/lib/libcupti.so.2025.1.1
+707d88621000-707d88622000 ---p 00621000 103:05 55446885                  /usr/local/cuda-12.8/targets/x86_64-linux/lib/libcupti.so.2025.1.1
+707d88622000-707d8866b000 r--p 00621000 103:05 55446885                  /usr/local/cuda-12.8/targets/x86_64-linux/lib/libcupti.so.2025.1.1
+707d8866b000-707d8873f000 rw-p 0066a000 103:05 55446885                  /usr/local/cuda-12.8/targets/x86_64-linux/lib/libcupti.so.2025.1.1
+707d8873f000-707d8876e000 rw-p 00000000 00:00 0 
+707d88777000-707d88779000 r--p 00000000 103:05 54808803                  /usr/lib/python3.12/lib-dynload/_queue.cpython-312-x86_64-linux-gnu.so
+707d88779000-707d8877b000 r-xp 00002000 103:05 54808803                  /usr/lib/python3.12/lib-dynload/_queue.cpython-312-x86_64-linux-gnu.so
+707d8877b000-707d8877c000 r--p 00004000 103:05 54808803                  /usr/lib/python3.12/lib-dynload/_queue.cpython-312-x86_64-linux-gnu.so
+707d8877c000-707d8877d000 r--p 00004000 103:05 54808803                  /usr/lib/python3.12/lib-dynload/_queue.cpython-312-x86_64-linux-gnu.so
+707d8877d000-707d8877e000 rw-p 00005000 103:05 54808803                  /usr/lib/python3.12/lib-dynload/_queue.cpython-312-x86_64-linux-gnu.so
+707d8877e000-707d88780000 r--p 00000000 103:05 54811064                  /usr/lib/python3.12/lib-dynload/mmap.cpython-312-x86_64-linux-gnu.so
+707d88780000-707d88783000 r-xp 00002000 103:05 54811064                  /usr/lib/python3.12/lib-dynload/mmap.cpython-312-x86_64-linux-gnu.so
+707d88783000-707d88785000 r--p 00005000 103:05 54811064                  /usr/lib/python3.12/lib-dynload/mmap.cpython-312-x86_64-linux-gnu.so
+707d88785000-707d88786000 r--p 00006000 103:05 54811064                  /usr/lib/python3.12/lib-dynload/mmap.cpython-312-x86_64-linux-gnu.so
+707d88786000-707d88787000 rw-p 00007000 103:05 54811064                  /usr/lib/python3.12/lib-dynload/mmap.cpython-312-x86_64-linux-gnu.so
+707d88787000-707d8878a000 r--p 00000000 103:05 54796124                  /usr/lib/x86_64-linux-gnu/liblzma.so.5.4.5
+707d8878a000-707d887ac000 r-xp 00003000 103:05 54796124                  /usr/lib/x86_64-linux-gnu/liblzma.so.5.4.5
+707d887ac000-707d887b7000 r--p 00025000 103:05 54796124                  /usr/lib/x86_64-linux-gnu/liblzma.so.5.4.5
+707d887b7000-707d887b8000 r--p 00030000 103:05 54796124                  /usr/lib/x86_64-linux-gnu/liblzma.so.5.4.5
+707d887b8000-707d887b9000 rw-p 00031000 103:05 54796124                  /usr/lib/x86_64-linux-gnu/liblzma.so.5.4.5
+707d887b9000-707d887bb000 r--p 00000000 103:05 54803497                  /usr/lib/x86_64-linux-gnu/libbz2.so.1.0.4
+707d887bb000-707d887c9000 r-xp 00002000 103:05 54803497                  /usr/lib/x86_64-linux-gnu/libbz2.so.1.0.4
+707d887c9000-707d887cb000 r--p 00010000 103:05 54803497                  /usr/lib/x86_64-linux-gnu/libbz2.so.1.0.4
+707d887cb000-707d887cc000 r--p 00011000 103:05 54803497                  /usr/lib/x86_64-linux-gnu/libbz2.so.1.0.4
+707d887cc000-707d887cd000 rw-p 00012000 103:05 54803497                  /usr/lib/x86_64-linux-gnu/libbz2.so.1.0.4
+707d887ce000-707d887d2000 r--p 00000000 103:05 33558045                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/numpy/linalg/_umath_linalg.cpython-312-x86_64-linux-gnu.so
+707d887d2000-707d887f6000 r-xp 00004000 103:05 33558045                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/numpy/linalg/_umath_linalg.cpython-312-x86_64-linux-gnu.so
+707d887f6000-707d887fb000 r--p 00028000 103:05 33558045                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/numpy/linalg/_umath_linalg.cpython-312-x86_64-linux-gnu.so
+707d887fb000-707d887fc000 r--p 0002d000 103:05 33558045                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/numpy/linalg/_umath_linalg.cpython-312-x86_64-linux-gnu.so
+707d887fc000-707d887fd000 rw-p 0002e000 103:05 33558045                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/numpy/linalg/_umath_linalg.cpython-312-x86_64-linux-gnu.so
+707d887fd000-707d88800000 rw-p 00036000 103:05 33558045                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/numpy/linalg/_umath_linalg.cpython-312-x86_64-linux-gnu.so
+707d88800000-707d88966000 r--p 00000000 103:05 54792013                  /usr/lib/x86_64-linux-gnu/libcuda.so.580.95.05
+707d88966000-707d898e8000 r-xp 00166000 103:05 54792013                  /usr/lib/x86_64-linux-gnu/libcuda.so.580.95.05
+707d898e8000-707d8e293000 r--p 010e8000 103:05 54792013                  /usr/lib/x86_64-linux-gnu/libcuda.so.580.95.05
+707d8e293000-707d8e294000 ---p 05a93000 103:05 54792013                  /usr/lib/x86_64-linux-gnu/libcuda.so.580.95.05
+707d8e294000-707d8e3c9000 r--p 05a93000 103:05 54792013                  /usr/lib/x86_64-linux-gnu/libcuda.so.580.95.05
+707d8e3c9000-707d8e3d2000 rw-p 05bc8000 103:05 54792013                  /usr/lib/x86_64-linux-gnu/libcuda.so.580.95.05
+707d8e3d2000-707d8e449000 rw-p 00000000 00:00 0 
+707d8e449000-707d8e44a000 r--p 00000000 103:05 54808237                  /usr/lib/python3.12/lib-dynload/_contextvars.cpython-312-x86_64-linux-gnu.so
+707d8e44a000-707d8e44b000 r-xp 00001000 103:05 54808237                  /usr/lib/python3.12/lib-dynload/_contextvars.cpython-312-x86_64-linux-gnu.so
+707d8e44b000-707d8e44c000 r--p 00002000 103:05 54808237                  /usr/lib/python3.12/lib-dynload/_contextvars.cpython-312-x86_64-linux-gnu.so
+707d8e44c000-707d8e44d000 r--p 00002000 103:05 54808237                  /usr/lib/python3.12/lib-dynload/_contextvars.cpython-312-x86_64-linux-gnu.so
+707d8e44d000-707d8e44e000 rw-p 00003000 103:05 54808237                  /usr/lib/python3.12/lib-dynload/_contextvars.cpython-312-x86_64-linux-gnu.so
+707d8e44e000-707d8e451000 r--p 00000000 103:05 33578968                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libshm.so
+707d8e451000-707d8e454000 r-xp 00003000 103:05 33578968                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libshm.so
+707d8e454000-707d8e455000 r--p 00006000 103:05 33578968                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libshm.so
+707d8e455000-707d8e456000 r--p 00006000 103:05 33578968                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libshm.so
+707d8e456000-707d8e457000 rw-p 00007000 103:05 33578968                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libshm.so
+707d8e457000-707d8e459000 rw-p 0000b000 103:05 33578968                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libshm.so
+707d8e459000-707d8e45a000 r--p 00000000 103:05 33567827                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/_C.cpython-312-x86_64-linux-gnu.so
+707d8e45a000-707d8e45b000 r-xp 00001000 103:05 33567827                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/_C.cpython-312-x86_64-linux-gnu.so
+707d8e45b000-707d8e45c000 r--p 00002000 103:05 33567827                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/_C.cpython-312-x86_64-linux-gnu.so
+707d8e45c000-707d8e45d000 r--p 00002000 103:05 33567827                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/_C.cpython-312-x86_64-linux-gnu.so
+707d8e45d000-707d8e45e000 rw-p 00003000 103:05 33567827                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/_C.cpython-312-x86_64-linux-gnu.so
+707d8e45e000-707d8e45f000 rw-p 00006000 103:05 33567827                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/_C.cpython-312-x86_64-linux-gnu.so
+707d8e45f000-707d8e460000 r--p 00000000 103:05 33578973                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libtorch_global_deps.so
+707d8e460000-707d8e461000 r-xp 00001000 103:05 33578973                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libtorch_global_deps.so
+707d8e461000-707d8e462000 r--p 00002000 103:05 33578973                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libtorch_global_deps.so
+707d8e462000-707d8e463000 r--p 00002000 103:05 33578973                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libtorch_global_deps.so
+707d8e463000-707d8e465000 rw-p 00003000 103:05 33578973                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/venv/lib/python3.12/site-packages/torch/lib/libtorch_global_deps.so
+707d8e465000-707d8e467000 r--p 00000000 103:05 54808247                  /usr/lib/python3.12/lib-dynload/_json.cpython-312-x86_64-linux-gnu.so
+707d8e467000-707d8e46e000 r-xp 00002000 103:05 54808247                  /usr/lib/python3.12/lib-dynload/_json.cpython-312-x86_64-linux-gnu.so
+707d8e46e000-707d8e470000 r--p 00009000 103:05 54808247                  /usr/lib/python3.12/lib-dynload/_json.cpython-312-x86_64-linux-gnu.so
+707d8e470000-707d8e471000 r--p 0000a000 103:05 54808247                  /usr/lib/python3.12/lib-dynload/_json.cpython-312-x86_64-linux-gnu.so
+707d8e471000-707d8e472000 rw-p 0000b000 103:05 54808247                  /usr/lib/python3.12/lib-dynload/_json.cpython-312-x86_64-linux-gnu.so
+707d8e472000-707d8e474000 r--p 00000000 103:05 54803618                  /usr/lib/x86_64-linux-gnu/libffi.so.8.1.4
+707d8e474000-707d8e47b000 r-xp 00002000 103:05 54803618                  /usr/lib/x86_64-linux-gnu/libffi.so.8.1.4
+707d8e47b000-707d8e47c000 r--p 00009000 103:05 54803618                  /usr/lib/x86_64-linux-gnu/libffi.so.8.1.4
+707d8e47c000-707d8e47d000 r--p 0000a000 103:05 54803618                  /usr/lib/x86_64-linux-gnu/libffi.so.8.1.4
+707d8e47d000-707d8e47e000 rw-p 0000b000 103:05 54803618                  /usr/lib/x86_64-linux-gnu/libffi.so.8.1.4
+707d8e482000-707d8e485000 r--p 00000000 103:05 54808797                  /usr/lib/python3.12/lib-dynload/_lzma.cpython-312-x86_64-linux-gnu.so
+707d8e485000-707d8e48a000 r-xp 00003000 103:05 54808797                  /usr/lib/python3.12/lib-dynload/_lzma.cpython-312-x86_64-linux-gnu.so
+707d8e48a000-707d8e48d000 r--p 00008000 103:05 54808797                  /usr/lib/python3.12/lib-dynload/_lzma.cpython-312-x86_64-linux-gnu.so
+707d8e48d000-707d8e48e000 r--p 0000a000 103:05 54808797                  /usr/lib/python3.12/lib-dynload/_lzma.cpython-312-x86_64-linux-gnu.so
+707d8e48e000-707d8e48f000 rw-p 0000b000 103:05 54808797                  /usr/lib/python3.12/lib-dynload/_lzma.cpython-312-x86_64-linux-gnu.so
+707d8e48f000-707d8e491000 r--p 00000000 103:05 54807775                  /usr/lib/python3.12/lib-dynload/_bz2.cpython-312-x86_64-linux-gnu.so
+707d8e491000-707d8e494000 r-xp 00002000 103:05 54807775                  /usr/lib/python3.12/lib-dynload/_bz2.cpython-312-x86_64-linux-gnu.so
+707d8e494000-707d8e496000 r--p 00005000 103:05 54807775                  /usr/lib/python3.12/lib-dynload/_bz2.cpython-312-x86_64-linux-gnu.so
+707d8e496000-707d8e497000 r--p 00006000 103:05 54807775                  /usr/lib/python3.12/lib-dynload/_bz2.cpython-312-x86_64-linux-gnu.so
+707d8e497000-707d8e498000 rw-p 00007000 103:05 54807775                  /usr/lib/python3.12/lib-dynload/_bz2.cpython-312-x86_64-linux-gnu.so
+707d8e498000-707d8e49e000 r--p 00000000 103:05 54808241                  /usr/lib/python3.12/lib-dynload/_ctypes.cpython-312-x86_64-linux-gnu.so
+707d8e49e000-707d8e4b0000 r-xp 00006000 103:05 54808241                  /usr/lib/python3.12/lib-dynload/_ctypes.cpython-312-x86_64-linux-gnu.so
+707d8e4b0000-707d8e4b6000 r--p 00018000 103:05 54808241                  /usr/lib/python3.12/lib-dynload/_ctypes.cpython-312-x86_64-linux-gnu.so
+707d8e4b6000-707d8e4b7000 r--p 0001d000 103:05 54808241                  /usr/lib/python3.12/lib-dynload/_ctypes.cpython-312-x86_64-linux-gnu.so
+707d8e4b7000-707d8e4bb000 rw-p 0001e000 103:05 54808241                  /usr/lib/python3.12/lib-dynload/_ctypes.cpython-312-x86_64-linux-gnu.so
+707d8e4bb000-707d8e600000 rw-p 00000000 00:00 0 
+707d8e600000-707d8e628000 r--p 00000000 103:05 54825933                  /usr/lib/x86_64-linux-gnu/libc.so.6
+707d8e628000-707d8e7b0000 r-xp 00028000 103:05 54825933                  /usr/lib/x86_64-linux-gnu/libc.so.6
+707d8e7b0000-707d8e7ff000 r--p 001b0000 103:05 54825933                  /usr/lib/x86_64-linux-gnu/libc.so.6
+707d8e7ff000-707d8e803000 r--p 001fe000 103:05 54825933                  /usr/lib/x86_64-linux-gnu/libc.so.6
+707d8e803000-707d8e805000 rw-p 00202000 103:05 54825933                  /usr/lib/x86_64-linux-gnu/libc.so.6
+707d8e805000-707d8e812000 rw-p 00000000 00:00 0 
+707d8e812000-707d8e866000 r--p 00000000 07:04 189                        /snap/code/198/usr/lib/locale/aa_DJ.utf8/LC_CTYPE
+707d8e866000-707d8e929000 rw-p 00000000 00:00 0 
+707d8e929000-707d8e92d000 r--p 00000000 103:05 54797089                  /usr/lib/x86_64-linux-gnu/libgcc_s.so.1
+707d8e92d000-707d8e951000 r-xp 00004000 103:05 54797089                  /usr/lib/x86_64-linux-gnu/libgcc_s.so.1
+707d8e951000-707d8e955000 r--p 00028000 103:05 54797089                  /usr/lib/x86_64-linux-gnu/libgcc_s.so.1
+707d8e955000-707d8e956000 r--p 0002b000 103:05 54797089                  /usr/lib/x86_64-linux-gnu/libgcc_s.so.1
+707d8e956000-707d8e957000 rw-p 0002c000 103:05 54797089                  /usr/lib/x86_64-linux-gnu/libgcc_s.so.1
+707d8e957000-707d8e958000 r--p 00000000 103:05 54825949                  /usr/lib/x86_64-linux-gnu/libutil.so.1
+707d8e958000-707d8e959000 r-xp 00001000 103:05 54825949                  /usr/lib/x86_64-linux-gnu/libutil.so.1
+707d8e959000-707d8e95a000 r--p 00002000 103:05 54825949                  /usr/lib/x86_64-linux-gnu/libutil.so.1
+707d8e95a000-707d8e95b000 r--p 00002000 103:05 54825949                  /usr/lib/x86_64-linux-gnu/libutil.so.1
+707d8e95b000-707d8e95c000 rw-p 00003000 103:05 54825949                  /usr/lib/x86_64-linux-gnu/libutil.so.1
+707d8e95c000-707d8e95e000 rw-p 00000000 00:00 0 
+707d8e95e000-707d8e95f000 r--p 00000000 103:05 54825947                  /usr/lib/x86_64-linux-gnu/librt.so.1
+707d8e95f000-707d8e960000 r-xp 00001000 103:05 54825947                  /usr/lib/x86_64-linux-gnu/librt.so.1
+707d8e960000-707d8e961000 r--p 00002000 103:05 54825947                  /usr/lib/x86_64-linux-gnu/librt.so.1
+707d8e961000-707d8e962000 r--p 00002000 103:05 54825947                  /usr/lib/x86_64-linux-gnu/librt.so.1
+707d8e962000-707d8e963000 rw-p 00003000 103:05 54825947                  /usr/lib/x86_64-linux-gnu/librt.so.1
+707d8e963000-707d8e964000 r--p 00000000 103:05 54825945                  /usr/lib/x86_64-linux-gnu/libpthread.so.0
+707d8e964000-707d8e965000 r-xp 00001000 103:05 54825945                  /usr/lib/x86_64-linux-gnu/libpthread.so.0
+707d8e965000-707d8e966000 r--p 00002000 103:05 54825945                  /usr/lib/x86_64-linux-gnu/libpthread.so.0
+707d8e966000-707d8e967000 r--p 00002000 103:05 54825945                  /usr/lib/x86_64-linux-gnu/libpthread.so.0
+707d8e967000-707d8e968000 rw-p 00003000 103:05 54825945                  /usr/lib/x86_64-linux-gnu/libpthread.so.0
+707d8e968000-707d8e969000 r--p 00000000 103:05 54825935                  /usr/lib/x86_64-linux-gnu/libdl.so.2
+707d8e969000-707d8e96a000 r-xp 00001000 103:05 54825935                  /usr/lib/x86_64-linux-gnu/libdl.so.2
+707d8e96a000-707d8e96b000 r--p 00002000 103:05 54825935                  /usr/lib/x86_64-linux-gnu/libdl.so.2
+707d8e96b000-707d8e96c000 r--p 00002000 103:05 54825935                  /usr/lib/x86_64-linux-gnu/libdl.so.2
+707d8e96c000-707d8e96d000 rw-p 00003000 103:05 54825935                  /usr/lib/x86_64-linux-gnu/libdl.so.2
+707d8e96d000-707d8e96f000 rw-p 00000000 00:00 0 
+707d8e96f000-707d8e973000 r--p 00000000 103:05 54788992                  /usr/lib/x86_64-linux-gnu/libexpat.so.1.9.1
+707d8e973000-707d8e990000 r-xp 00004000 103:05 54788992                  /usr/lib/x86_64-linux-gnu/libexpat.so.1.9.1
+707d8e990000-707d8e998000 r--p 00021000 103:05 54788992                  /usr/lib/x86_64-linux-gnu/libexpat.so.1.9.1
+707d8e998000-707d8e99a000 r--p 00028000 103:05 54788992                  /usr/lib/x86_64-linux-gnu/libexpat.so.1.9.1
+707d8e99a000-707d8e99b000 rw-p 0002a000 103:05 54788992                  /usr/lib/x86_64-linux-gnu/libexpat.so.1.9.1
+707d8e99b000-707d8e99d000 r--p 00000000 103:05 54804229                  /usr/lib/x86_64-linux-gnu/libz.so.1.3
+707d8e99d000-707d8e9af000 r-xp 00002000 103:05 54804229                  /usr/lib/x86_64-linux-gnu/libz.so.1.3
+707d8e9af000-707d8e9b5000 r--p 00014000 103:05 54804229                  /usr/lib/x86_64-linux-gnu/libz.so.1.3
+707d8e9b5000-707d8e9b6000 r--p 0001a000 103:05 54804229                  /usr/lib/x86_64-linux-gnu/libz.so.1.3
+707d8e9b6000-707d8e9b7000 rw-p 0001b000 103:05 54804229                  /usr/lib/x86_64-linux-gnu/libz.so.1.3
+707d8e9b7000-707d8e9c7000 r--p 00000000 103:05 54825936                  /usr/lib/x86_64-linux-gnu/libm.so.6
+707d8e9c7000-707d8ea46000 r-xp 00010000 103:05 54825936                  /usr/lib/x86_64-linux-gnu/libm.so.6
+707d8ea46000-707d8ea9e000 r--p 0008f000 103:05 54825936                  /usr/lib/x86_64-linux-gnu/libm.so.6
+707d8ea9e000-707d8ea9f000 r--p 000e7000 103:05 54825936                  /usr/lib/x86_64-linux-gnu/libm.so.6
+707d8ea9f000-707d8eaa0000 rw-p 000e8000 103:05 54825936                  /usr/lib/x86_64-linux-gnu/libm.so.6
+707d8eaa2000-707d8eaa9000 r--s 00000000 103:05 54825922                  /usr/lib/x86_64-linux-gnu/gconv/gconv-modules.cache
+707d8eaa9000-707d8eaaa000 r--s 00000000 00:06 1252                       /dev/nvidiactl
+707d8eaaa000-707d8eaba000 -w-s 00000000 00:06 1253                       /dev/nvidia0
+707d8eaba000-707d8eabb000 r--p 00000000 103:05 31204270                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/CPU_GPU_Trace/libdwcupti.so
+707d8eabb000-707d8eabc000 r-xp 00001000 103:05 31204270                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/CPU_GPU_Trace/libdwcupti.so
+707d8eabc000-707d8eabd000 r--p 00002000 103:05 31204270                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/CPU_GPU_Trace/libdwcupti.so
+707d8eabd000-707d8eabe000 r--p 00002000 103:05 31204270                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/CPU_GPU_Trace/libdwcupti.so
+707d8eabe000-707d8eabf000 rw-p 00003000 103:05 31204270                  /home/prathmesh/Documents/AP/modified-cpu-gpu-trace/CPU_GPU_Trace/libdwcupti.so
+707d8eabf000-707d8eac1000 rw-p 00000000 00:00 0 
+707d8eac1000-707d8eac3000 r--p 00000000 00:00 0                          [vvar]
+707d8eac3000-707d8eac5000 r--p 00000000 00:00 0                          [vvar_vclock]
+707d8eac5000-707d8eac7000 r-xp 00000000 00:00 0                          [vdso]
+707d8eac7000-707d8eac8000 r--p 00000000 103:05 54825930                  /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+707d8eac8000-707d8eaf3000 r-xp 00001000 103:05 54825930                  /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+707d8eaf3000-707d8eafd000 r--p 0002c000 103:05 54825930                  /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+707d8eafd000-707d8eaff000 r--p 00036000 103:05 54825930                  /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+707d8eaff000-707d8eb01000 rw-p 00038000 103:05 54825930                  /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+7fff7cb60000-7fff7cb82000 rw-p 00000000 00:00 0                          [stack]
+ffffffffff600000-ffffffffff601000 --xp 00000000 00:00 0                  [vsyscall]

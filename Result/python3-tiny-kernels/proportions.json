@@ -1,0 +1,8 @@
+{
+  "cgroup": "python3",
+  "wall_clock_ms": 47.993758,
+  "cpu_ms": 0.0,
+  "gpu_ms": 47.993758,
+  "cpu_pct": 0.0,
+  "gpu_pct": 100.0
+}

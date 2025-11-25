@@ -1,0 +1,3 @@
+all;gpu;cudaLaunchKernel_v7000;_ZN2at6native29vectorized_elementwise_kernelILi4ENS0_11FillFunctorIfEESt5arrayIPcLm1EEEEviT0_T1_ (GPU) 2816
+all;gpu;cudaLaunchKernel_v7000;_ZN2at6native29vectorized_elementwise_kernelILi4ENS0_21CUDAFunctorOnSelf_addIfEESt5arrayIPcLm2EEEEviT0_T1_ (GPU) 47989342
+all;gpu;cudaMemcpyAsync_v3020; (GPU) 1600

@@ -1,0 +1,2713 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" width="1200" height="854" onload="init(evt)" viewBox="0 0 1200 854" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<!-- Flame graph stack visualization. See https://github.com/brendangregg/FlameGraph for latest version, and http://www.brendangregg.com/flamegraphs.html for examples. -->
+<!-- NOTES:  -->
+<defs>
+	<linearGradient id="background" y1="0" y2="1" x1="0" x2="0" >
+		<stop stop-color="#eeeeee" offset="5%" />
+		<stop stop-color="#eeeeb0" offset="95%" />
+	</linearGradient>
+</defs>
+<style type="text/css">
+	text { font-family:Verdana; font-size:12px; fill:rgb(0,0,0); }
+	#search, #ignorecase { opacity:0.1; cursor:pointer; }
+	#search:hover, #search.show, #ignorecase:hover, #ignorecase.show { opacity:1; }
+	#subtitle { text-anchor:middle; font-color:rgb(160,160,160); }
+	#title { text-anchor:middle; font-size:17px}
+	#unzoom { cursor:pointer; }
+	#frames > *:hover { stroke:black; stroke-width:0.5; cursor:pointer; }
+	.hide { display:none; }
+	.parent { opacity:0.5; }
+</style>
+<script type="text/ecmascript">
+<![CDATA[
+	"use strict";
+	var details, searchbtn, unzoombtn, matchedtxt, svg, searching, currentSearchTerm, ignorecase, ignorecaseBtn;
+	function init(evt) {
+		details = document.getElementById("details").firstChild;
+		searchbtn = document.getElementById("search");
+		ignorecaseBtn = document.getElementById("ignorecase");
+		unzoombtn = document.getElementById("unzoom");
+		matchedtxt = document.getElementById("matched");
+		svg = document.getElementsByTagName("svg")[0];
+		searching = 0;
+		currentSearchTerm = null;
+
+		// use GET parameters to restore a flamegraphs state.
+		var params = get_params();
+		if (params.x && params.y)
+			zoom(find_group(document.querySelector('[x="' + params.x + '"][y="' + params.y + '"]')));
+                if (params.s) search(params.s);
+	}
+
+	// event listeners
+	window.addEventListener("click", function(e) {
+		var target = find_group(e.target);
+		if (target) {
+			if (target.nodeName == "a") {
+				if (e.ctrlKey === false) return;
+				e.preventDefault();
+			}
+			if (target.classList.contains("parent")) unzoom(true);
+			zoom(target);
+			if (!document.querySelector('.parent')) {
+				// we have basically done a clearzoom so clear the url
+				var params = get_params();
+				if (params.x) delete params.x;
+				if (params.y) delete params.y;
+				history.replaceState(null, null, parse_params(params));
+				unzoombtn.classList.add("hide");
+				return;
+			}
+
+			// set parameters for zoom state
+			var el = target.querySelector("rect");
+			if (el && el.attributes && el.attributes.y && el.attributes._orig_x) {
+				var params = get_params()
+				params.x = el.attributes._orig_x.value;
+				params.y = el.attributes.y.value;
+				history.replaceState(null, null, parse_params(params));
+			}
+		}
+		else if (e.target.id == "unzoom") clearzoom();
+		else if (e.target.id == "search") search_prompt();
+		else if (e.target.id == "ignorecase") toggle_ignorecase();
+	}, false)
+
+	// mouse-over for info
+	// show
+	window.addEventListener("mouseover", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = "Function: " + g_to_text(target);
+	}, false)
+
+	// clear
+	window.addEventListener("mouseout", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = ' ';
+	}, false)
+
+	// ctrl-F for search
+	// ctrl-I to toggle case-sensitive search
+	window.addEventListener("keydown",function (e) {
+		if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) {
+			e.preventDefault();
+			search_prompt();
+		}
+		else if (e.ctrlKey && e.keyCode === 73) {
+			e.preventDefault();
+			toggle_ignorecase();
+		}
+	}, false)
+
+	// functions
+	function get_params() {
+		var params = {};
+		var paramsarr = window.location.search.substr(1).split('&');
+		for (var i = 0; i < paramsarr.length; ++i) {
+			var tmp = paramsarr[i].split("=");
+			if (!tmp[0] || !tmp[1]) continue;
+			params[tmp[0]]  = decodeURIComponent(tmp[1]);
+		}
+		return params;
+	}
+	function parse_params(params) {
+		var uri = "?";
+		for (var key in params) {
+			uri += key + '=' + encodeURIComponent(params[key]) + '&';
+		}
+		if (uri.slice(-1) == "&")
+			uri = uri.substring(0, uri.length - 1);
+		if (uri == '?')
+			uri = window.location.href.split('?')[0];
+		return uri;
+	}
+	function find_child(node, selector) {
+		var children = node.querySelectorAll(selector);
+		if (children.length) return children[0];
+	}
+	function find_group(node) {
+		var parent = node.parentElement;
+		if (!parent) return;
+		if (parent.id == "frames") return node;
+		return find_group(parent);
+	}
+	function orig_save(e, attr, val) {
+		if (e.attributes["_orig_" + attr] != undefined) return;
+		if (e.attributes[attr] == undefined) return;
+		if (val == undefined) val = e.attributes[attr].value;
+		e.setAttribute("_orig_" + attr, val);
+	}
+	function orig_load(e, attr) {
+		if (e.attributes["_orig_"+attr] == undefined) return;
+		e.attributes[attr].value = e.attributes["_orig_" + attr].value;
+		e.removeAttribute("_orig_"+attr);
+	}
+	function g_to_text(e) {
+		var text = find_child(e, "title").firstChild.nodeValue;
+		return (text)
+	}
+	function g_to_func(e) {
+		var func = g_to_text(e);
+		// if there's any manipulation we want to do to the function
+		// name before it's searched, do it here before returning.
+		return (func);
+	}
+	function update_text(e) {
+		var r = find_child(e, "rect");
+		var t = find_child(e, "text");
+		var w = parseFloat(r.attributes.width.value) -3;
+		var txt = find_child(e, "title").textContent.replace(/\([^(]*\)$/,"");
+		t.attributes.x.value = parseFloat(r.attributes.x.value) + 3;
+
+		// Smaller than this size won't fit anything
+		if (w < 2 * 12 * 0.59) {
+			t.textContent = "";
+			return;
+		}
+
+		t.textContent = txt;
+		var sl = t.getSubStringLength(0, txt.length);
+		// check if only whitespace or if we can fit the entire string into width w
+		if (/^ *$/.test(txt) || sl < w)
+			return;
+
+		// this isn't perfect, but gives a good starting point
+		// and avoids calling getSubStringLength too often
+		var start = Math.floor((w/sl) * txt.length);
+		for (var x = start; x > 0; x = x-2) {
+			if (t.getSubStringLength(0, x + 2) <= w) {
+				t.textContent = txt.substring(0, x) + "..";
+				return;
+			}
+		}
+		t.textContent = "";
+	}
+
+	// zoom
+	function zoom_reset(e) {
+		if (e.attributes != undefined) {
+			orig_load(e, "x");
+			orig_load(e, "width");
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_reset(c[i]);
+		}
+	}
+	function zoom_child(e, x, ratio) {
+		if (e.attributes != undefined) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = (parseFloat(e.attributes.x.value) - x - 10) * ratio + 10;
+				if (e.tagName == "text")
+					e.attributes.x.value = find_child(e.parentNode, "rect[x]").attributes.x.value + 3;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseFloat(e.attributes.width.value) * ratio;
+			}
+		}
+
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_child(c[i], x - 10, ratio);
+		}
+	}
+	function zoom_parent(e) {
+		if (e.attributes) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = 10;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseInt(svg.width.baseVal.value) - (10 * 2);
+			}
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_parent(c[i]);
+		}
+	}
+	function zoom(node) {
+		var attr = find_child(node, "rect").attributes;
+		var width = parseFloat(attr.width.value);
+		var xmin = parseFloat(attr.x.value);
+		var xmax = parseFloat(xmin + width);
+		var ymin = parseFloat(attr.y.value);
+		var ratio = (svg.width.baseVal.value - 2 * 10) / width;
+
+		// XXX: Workaround for JavaScript float issues (fix me)
+		var fudge = 0.0001;
+
+		unzoombtn.classList.remove("hide");
+
+		var el = document.getElementById("frames").children;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var a = find_child(e, "rect").attributes;
+			var ex = parseFloat(a.x.value);
+			var ew = parseFloat(a.width.value);
+			var upstack;
+			// Is it an ancestor
+			if (0 == 0) {
+				upstack = parseFloat(a.y.value) > ymin;
+			} else {
+				upstack = parseFloat(a.y.value) < ymin;
+			}
+			if (upstack) {
+				// Direct ancestor
+				if (ex <= xmin && (ex+ew+fudge) >= xmax) {
+					e.classList.add("parent");
+					zoom_parent(e);
+					update_text(e);
+				}
+				// not in current path
+				else
+					e.classList.add("hide");
+			}
+			// Children maybe
+			else {
+				// no common path
+				if (ex < xmin || ex + fudge >= xmax) {
+					e.classList.add("hide");
+				}
+				else {
+					zoom_child(e, xmin, ratio);
+					update_text(e);
+				}
+			}
+		}
+		search();
+	}
+	function unzoom(dont_update_text) {
+		unzoombtn.classList.add("hide");
+		var el = document.getElementById("frames").children;
+		for(var i = 0; i < el.length; i++) {
+			el[i].classList.remove("parent");
+			el[i].classList.remove("hide");
+			zoom_reset(el[i]);
+			if(!dont_update_text) update_text(el[i]);
+		}
+		search();
+	}
+	function clearzoom() {
+		unzoom();
+
+		// remove zoom state
+		var params = get_params();
+		if (params.x) delete params.x;
+		if (params.y) delete params.y;
+		history.replaceState(null, null, parse_params(params));
+	}
+
+	// search
+	function toggle_ignorecase() {
+		ignorecase = !ignorecase;
+		if (ignorecase) {
+			ignorecaseBtn.classList.add("show");
+		} else {
+			ignorecaseBtn.classList.remove("show");
+		}
+		reset_search();
+		search();
+	}
+	function reset_search() {
+		var el = document.querySelectorAll("#frames rect");
+		for (var i = 0; i < el.length; i++) {
+			orig_load(el[i], "fill")
+		}
+		var params = get_params();
+		delete params.s;
+		history.replaceState(null, null, parse_params(params));
+	}
+	function search_prompt() {
+		if (!searching) {
+			var term = prompt("Enter a search term (regexp " +
+			    "allowed, eg: ^ext4_)"
+			    + (ignorecase ? ", ignoring case" : "")
+			    + "\nPress Ctrl-i to toggle case sensitivity", "");
+			if (term != null) search(term);
+		} else {
+			reset_search();
+			searching = 0;
+			currentSearchTerm = null;
+			searchbtn.classList.remove("show");
+			searchbtn.firstChild.nodeValue = "Search"
+			matchedtxt.classList.add("hide");
+			matchedtxt.firstChild.nodeValue = ""
+		}
+	}
+	function search(term) {
+		if (term) currentSearchTerm = term;
+
+		var re = new RegExp(currentSearchTerm, ignorecase ? 'i' : '');
+		var el = document.getElementById("frames").children;
+		var matches = new Object();
+		var maxwidth = 0;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var func = g_to_func(e);
+			var rect = find_child(e, "rect");
+			if (func == null || rect == null)
+				continue;
+
+			// Save max width. Only works as we have a root frame
+			var w = parseFloat(rect.attributes.width.value);
+			if (w > maxwidth)
+				maxwidth = w;
+
+			if (func.match(re)) {
+				// highlight
+				var x = parseFloat(rect.attributes.x.value);
+				orig_save(rect, "fill");
+				rect.attributes.fill.value = "rgb(230,0,230)";
+
+				// remember matches
+				if (matches[x] == undefined) {
+					matches[x] = w;
+				} else {
+					if (w > matches[x]) {
+						// overwrite with parent
+						matches[x] = w;
+					}
+				}
+				searching = 1;
+			}
+		}
+		if (!searching)
+			return;
+		var params = get_params();
+		params.s = currentSearchTerm;
+		history.replaceState(null, null, parse_params(params));
+
+		searchbtn.classList.add("show");
+		searchbtn.firstChild.nodeValue = "Reset Search";
+
+		// calculate percent matched, excluding vertical overlap
+		var count = 0;
+		var lastx = -1;
+		var lastw = 0;
+		var keys = Array();
+		for (k in matches) {
+			if (matches.hasOwnProperty(k))
+				keys.push(k);
+		}
+		// sort the matched frames by their x location
+		// ascending, then width descending
+		keys.sort(function(a, b){
+			return a - b;
+		});
+		// Step through frames saving only the biggest bottom-up frames
+		// thanks to the sort order. This relies on the tree property
+		// where children are always smaller than their parents.
+		var fudge = 0.0001;	// JavaScript floating point
+		for (var k in keys) {
+			var x = parseFloat(keys[k]);
+			var w = matches[keys[k]];
+			if (x >= lastx + lastw - fudge) {
+				count += w;
+				lastx = x;
+				lastw = w;
+			}
+		}
+		// display matched percent
+		matchedtxt.classList.remove("hide");
+		var pct = 100 * count / maxwidth;
+		if (pct != 100) pct = pct.toFixed(1)
+		matchedtxt.firstChild.nodeValue = "Matched: " + pct + "%";
+	}
+]]>
+</script>
+<rect x="0.0" y="0" width="1200.0" height="854.0" fill="url(#background)"  />
+<text id="title" x="600.00" y="24" >CPU Energy Flame Graph</text>
+<text id="details" x="10.00" y="837" > </text>
+<text id="unzoom" x="10.00" y="24" class="hide">Reset Zoom</text>
+<text id="search" x="1090.00" y="24" >Search</text>
+<text id="ignorecase" x="1174.00" y="24" >ic</text>
+<text id="matched" x="1090.00" y="837" > </text>
+<g id="frames">
+<g >
+<title>cuCtxGetDevice (libcuda.so.580.95.05:0) (276,496 microjoules, 0.09%)</title><rect x="1058.3" y="453" width="1.1" height="15.0" fill="rgb(208,17,4)" rx="2" ry="2" />
+<text  x="1061.35" y="463.5" ></text>
+</g>
+<g >
+<title>0x7359302b8f9f (libcuda.so.580.95.05:0) (172,890 microjoules, 0.06%)</title><rect x="323.6" y="101" width="0.6" height="15.0" fill="rgb(222,78,18)" rx="2" ry="2" />
+<text  x="326.58" y="111.5" ></text>
+</g>
+<g >
+<title>0x735930461b7b (libcuda.so.580.95.05:0) (6,328,248 microjoules, 2.06%)</title><rect x="775.0" y="485" width="24.3" height="15.0" fill="rgb(253,221,53)" rx="2" ry="2" />
+<text  x="778.00" y="495.5" >0..</text>
+</g>
+<g >
+<title>at::native::matmul (libtorch_cpu.so:0) (2,916,776 microjoules, 0.95%)</title><rect x="319.0" y="661" width="11.2" height="15.0" fill="rgb(244,179,43)" rx="2" ry="2" />
+<text  x="322.05" y="671.5" ></text>
+</g>
+<g >
+<title>0x73592f909b03 (libcupti.so.2025.1.1:0) (297,370 microjoules, 0.10%)</title><rect x="1112.3" y="373" width="1.1" height="15.0" fill="rgb(231,122,29)" rx="2" ry="2" />
+<text  x="1115.29" y="383.5" ></text>
+</g>
+<g >
+<title>0x73592c213d9c (libcudart.so.12:0) (813,266 microjoules, 0.26%)</title><rect x="1082.7" y="533" width="3.1" height="15.0" fill="rgb(226,98,23)" rx="2" ry="2" />
+<text  x="1085.69" y="543.5" ></text>
+</g>
+<g >
+<title>torch::autograd::VariableType::(anonymous namespace)::add_Tensor (libtorch_cpu.so:0) (35,978,682 microjoules, 11.70%)</title><rect x="1042.6" y="661" width="138.1" height="15.0" fill="rgb(234,137,32)" rx="2" ry="2" />
+<text  x="1045.58" y="671.5" >torch::autograd::..</text>
+</g>
+<g >
+<title>0x73592c23bab8 (libcudart.so.12:0) (1,373,208 microjoules, 0.45%)</title><rect x="1027.5" y="421" width="5.3" height="15.0" fill="rgb(242,171,40)" rx="2" ry="2" />
+<text  x="1030.50" y="431.5" ></text>
+</g>
+<g >
+<title>0x73582216e1f2 (libcublasLt.so.12:0) (2,132,771 microjoules, 0.69%)</title><rect x="322.1" y="293" width="8.1" height="15.0" fill="rgb(223,86,20)" rx="2" ry="2" />
+<text  x="325.05" y="303.5" ></text>
+</g>
+<g >
+<title>0x7359303a98e8 (libcuda.so.580.95.05:0) (18,589,183 microjoules, 6.05%)</title><rect x="1095.3" y="501" width="71.4" height="15.0" fill="rgb(225,95,22)" rx="2" ry="2" />
+<text  x="1098.32" y="511.5" >0x735930..</text>
+</g>
+<g >
+<title>at::(anonymous namespace)::create_out (libtorch_cuda.so:0) (2,962,878 microjoules, 0.96%)</title><rect x="1047.0" y="517" width="11.3" height="15.0" fill="rgb(244,181,43)" rx="2" ry="2" />
+<text  x="1049.98" y="527.5" ></text>
+</g>
+<g >
+<title>0x73593023d37e (libcuda.so.580.95.05:0) (756,053 microjoules, 0.25%)</title><rect x="901.2" y="549" width="2.9" height="15.0" fill="rgb(240,162,38)" rx="2" ry="2" />
+<text  x="904.23" y="559.5" ></text>
+</g>
+<g >
+<title>c10::StorageImpl::StorageImpl (libtorch_cpu.so:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="437" width="178.4" height="15.0" fill="rgb(210,25,6)" rx="2" ry="2" />
+<text  x="143.62" y="447.5" >c10::StorageImpl::Stora..</text>
+</g>
+<g >
+<title>0x7359301b8a29 (libcuda.so.580.95.05:0) (1,733,342 microjoules, 0.56%)</title><rect x="1087.8" y="421" width="6.7" height="15.0" fill="rgb(246,192,45)" rx="2" ry="2" />
+<text  x="1090.81" y="431.5" ></text>
+</g>
+<g >
+<title>0x73592f917353 (libcupti.so.2025.1.1:0) (301,194 microjoules, 0.10%)</title><rect x="1106.6" y="405" width="1.2" height="15.0" fill="rgb(209,20,4)" rx="2" ry="2" />
+<text  x="1109.61" y="415.5" ></text>
+</g>
+<g >
+<title>0x7359302243e9 (libcuda.so.580.95.05:0) (410,262 microjoules, 0.13%)</title><rect x="1149.8" y="373" width="1.6" height="15.0" fill="rgb(243,179,42)" rx="2" ry="2" />
+<text  x="1152.83" y="383.5" ></text>
+</g>
+<g >
+<title>0x73592c241603 (libcudart.so.12:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="293" width="178.4" height="15.0" fill="rgb(235,139,33)" rx="2" ry="2" />
+<text  x="143.62" y="303.5" >0x73592c241603 (libcuda..</text>
+</g>
+<g >
+<title>0x735930f9d1c0 (libcuda.so.580.95.05:0) (2,819,224 microjoules, 0.92%)</title><rect x="516.9" y="549" width="10.8" height="15.0" fill="rgb(236,145,34)" rx="2" ry="2" />
+<text  x="519.91" y="559.5" ></text>
+</g>
+<g >
+<title>at::detail::empty_generic (libtorch_cpu.so:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="469" width="178.4" height="15.0" fill="rgb(251,212,50)" rx="2" ry="2" />
+<text  x="143.62" y="479.5" >at::detail::empty_gener..</text>
+</g>
+<g >
+<title>0x73593041f40e (libcuda.so.580.95.05:0) (684,065 microjoules, 0.22%)</title><rect x="1027.5" y="181" width="2.6" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="1030.50" y="191.5" ></text>
+</g>
+<g >
+<title>0x73593022b9e9 (libcuda.so.580.95.05:0) (44,219,672 microjoules, 14.38%)</title><rect x="331.5" y="565" width="169.7" height="15.0" fill="rgb(208,13,3)" rx="2" ry="2" />
+<text  x="334.47" y="575.5" >0x73593022b9e9 (libcu..</text>
+</g>
+<g >
+<title>0x735936306ff0 ([vdso]:0) (417,212 microjoules, 0.14%)</title><rect x="913.7" y="533" width="1.6" height="15.0" fill="rgb(216,54,13)" rx="2" ry="2" />
+<text  x="916.66" y="543.5" ></text>
+</g>
+<g >
+<title>0x735821890963 (libcublasLt.so.12:0) (2,132,771 microjoules, 0.69%)</title><rect x="322.1" y="389" width="8.1" height="15.0" fill="rgb(209,22,5)" rx="2" ry="2" />
+<text  x="325.05" y="399.5" ></text>
+</g>
+<g >
+<title>0x73592fb55cac (libcupti.so.2025.1.1:0) (301,194 microjoules, 0.10%)</title><rect x="1106.6" y="357" width="1.2" height="15.0" fill="rgb(227,102,24)" rx="2" ry="2" />
+<text  x="1109.61" y="367.5" ></text>
+</g>
+<g >
+<title>at::_ops::zero_::call (libtorch_cpu.so:0) (1,373,208 microjoules, 0.45%)</title><rect x="1027.5" y="629" width="5.3" height="15.0" fill="rgb(245,187,44)" rx="2" ry="2" />
+<text  x="1030.50" y="639.5" ></text>
+</g>
+<g >
+<title>0x73592f917c50 (libcupti.so.2025.1.1:0) (297,370 microjoules, 0.10%)</title><rect x="1112.3" y="389" width="1.1" height="15.0" fill="rgb(218,63,15)" rx="2" ry="2" />
+<text  x="1115.29" y="399.5" ></text>
+</g>
+<g >
+<title>0x735930222fe6 (libcuda.so.580.95.05:0) (31,934,011 microjoules, 10.39%)</title><rect x="140.6" y="133" width="122.6" height="15.0" fill="rgb(246,192,45)" rx="2" ry="2" />
+<text  x="143.62" y="143.5" >0x735930222fe6 ..</text>
+</g>
+<g >
+<title>cudaDeviceGetStreamPriorityRange (libcudart.so.12:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="357" width="178.4" height="15.0" fill="rgb(205,2,0)" rx="2" ry="2" />
+<text  x="143.62" y="367.5" >cudaDeviceGetStreamPrio..</text>
+</g>
+<g >
+<title>pthread_mutex_lock (libc.so.6:0) (813,266 microjoules, 0.26%)</title><rect x="1082.7" y="485" width="3.1" height="15.0" fill="rgb(231,120,28)" rx="2" ry="2" />
+<text  x="1085.69" y="495.5" ></text>
+</g>
+<g >
+<title>0x7359304238de (libcuda.so.580.95.05:0) (283,018 microjoules, 0.09%)</title><rect x="1031.7" y="229" width="1.1" height="15.0" fill="rgb(227,103,24)" rx="2" ry="2" />
+<text  x="1034.69" y="239.5" ></text>
+</g>
+<g >
+<title>at::cuda::(anonymous namespace)::createCublasHandle (libtorch_cuda.so:0) (784,005 microjoules, 0.25%)</title><rect x="319.0" y="469" width="3.1" height="15.0" fill="rgb(225,95,22)" rx="2" ry="2" />
+<text  x="322.05" y="479.5" ></text>
+</g>
+<g >
+<title>0x735930461bac (libcuda.so.580.95.05:0) (1,040,909 microjoules, 0.34%)</title><rect x="811.5" y="485" width="4.0" height="15.0" fill="rgb(225,94,22)" rx="2" ry="2" />
+<text  x="814.51" y="495.5" ></text>
+</g>
+<g >
+<title>0x73593048e028 (libcuda.so.580.95.05:0) (283,018 microjoules, 0.09%)</title><rect x="1031.7" y="117" width="1.1" height="15.0" fill="rgb(231,119,28)" rx="2" ry="2" />
+<text  x="1034.69" y="127.5" ></text>
+</g>
+<g >
+<title>0x735935f8afef (libc.so.6:0) (1,016,825 microjoules, 0.33%)</title><rect x="1125.7" y="293" width="3.9" height="15.0" fill="rgb(227,102,24)" rx="2" ry="2" />
+<text  x="1128.66" y="303.5" ></text>
+</g>
+<g >
+<title>0x73593028b2c1 (libcuda.so.580.95.05:0) (1,733,342 microjoules, 0.56%)</title><rect x="1087.8" y="357" width="6.7" height="15.0" fill="rgb(229,110,26)" rx="2" ry="2" />
+<text  x="1090.81" y="367.5" ></text>
+</g>
+<g >
+<title>0x73593019af59 (libcuda.so.580.95.05:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="213" width="178.4" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="143.62" y="223.5" >0x73593019af59 (libcuda..</text>
+</g>
+<g >
+<title>cuptiGetTimestamp (libcupti.so.2025.1.1:0) (430,400 microjoules, 0.14%)</title><rect x="1171.5" y="485" width="1.7" height="15.0" fill="rgb(232,125,30)" rx="2" ry="2" />
+<text  x="1174.53" y="495.5" ></text>
+</g>
+<g >
+<title>at::(anonymous namespace)::(anonymous namespace)::wrapper_CUDA_memory_format_empty (libtorch_cuda.so:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="533" width="178.4" height="15.0" fill="rgb(249,206,49)" rx="2" ry="2" />
+<text  x="143.62" y="543.5" >at::(anonymous namespac..</text>
+</g>
+<g >
+<title>0x735930f9d132 (libcuda.so.580.95.05:0) (398,577 microjoules, 0.13%)</title><rect x="582.8" y="533" width="1.5" height="15.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="585.80" y="543.5" ></text>
+</g>
+<g >
+<title>c10::impl::wrap_kernel_functor_unboxed_&lt;c10::impl::detail::WrapFunctionIntoFunctor_&lt;c10::CompileTimeFunctionPointer&lt;at::Tensor(c10::ArrayRef&lt;c10::SymInt&gt;, std::optional&lt;c10::ScalarType&gt;, std::optional&lt;c10::Layout&gt;, std::optional&lt;c10::Device&gt;, std::optional&lt;bool&gt;), &amp;at::(anonymous namespace)::(anonymous namespace)::wrapper_CompositeExplicitAutograd__randn(c10::ArrayRef&lt;c10::SymInt&gt;, std::optional&lt;c10::ScalarType&gt;, std::optional&lt;c10::Layout&gt;, std::optional&lt;c10::Device&gt;, std::optional&lt;bool&gt;)&gt;, at::Tensor, c10::guts::typelist::typelist&lt;c10::ArrayRef&lt;c10::SymInt&gt;, std::optional&lt;c10::ScalarType&gt;, std::optional&lt;c10::Layout&gt;, std::optional&lt;c10::Device&gt;, std::optional&lt;bool&gt; &gt; &gt;, at::Tensor(c10::ArrayRef&lt;c10::SymInt&gt;, std::optional&lt;c10::ScalarType&gt;, std::optional&lt;c10::Layout&gt;, std::optional&lt;c10::Device&gt;, std::optional&lt;bool&gt;)&gt;::call (libtorch_cpu.so:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="661" width="178.4" height="15.0" fill="rgb(205,3,0)" rx="2" ry="2" />
+<text  x="143.62" y="671.5" >c10::impl::wrap_kernel_..</text>
+</g>
+<g >
+<title>malloc (libc.so.6:0) (1,203,496 microjoules, 0.39%)</title><rect x="1136.8" y="373" width="4.7" height="15.0" fill="rgb(214,43,10)" rx="2" ry="2" />
+<text  x="1139.84" y="383.5" ></text>
+</g>
+<g >
+<title>0x73592f93196f (libcupti.so.2025.1.1:0) (3,404,899 microjoules, 1.11%)</title><rect x="1116.5" y="341" width="13.1" height="15.0" fill="rgb(210,25,6)" rx="2" ry="2" />
+<text  x="1119.50" y="351.5" ></text>
+</g>
+<g >
+<title>torch::FunctionSignature::FunctionSignature (libtorch_python.so:0) (342,315 microjoules, 0.11%)</title><rect x="1032.8" y="677" width="1.3" height="15.0" fill="rgb(239,157,37)" rx="2" ry="2" />
+<text  x="1035.77" y="687.5" ></text>
+</g>
+<g >
+<title>0x73593040a193 (libcuda.so.580.95.05:0) (748,543 microjoules, 0.24%)</title><rect x="554.6" y="533" width="2.9" height="15.0" fill="rgb(239,157,37)" rx="2" ry="2" />
+<text  x="557.64" y="543.5" ></text>
+</g>
+<g >
+<title>std::vector&lt;torch::FunctionSignature, std::allocator&lt;torch::FunctionSignature&gt; &gt;::_M_realloc_insert&lt;std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt; const&amp;, int&amp;&gt; (libtorch_python.so:0) (342,315 microjoules, 0.11%)</title><rect x="1032.8" y="693" width="1.3" height="15.0" fill="rgb(226,101,24)" rx="2" ry="2" />
+<text  x="1035.77" y="703.5" ></text>
+</g>
+<g >
+<title>0x735936306c6f ([vdso]:0) (635,121 microjoules, 0.21%)</title><rect x="974.6" y="517" width="2.4" height="15.0" fill="rgb(247,195,46)" rx="2" ry="2" />
+<text  x="977.59" y="527.5" ></text>
+</g>
+<g >
+<title>at::detail::empty_cuda (libtorch_cuda.so:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="501" width="178.4" height="15.0" fill="rgb(219,65,15)" rx="2" ry="2" />
+<text  x="143.62" y="511.5" >at::detail::empty_cuda ..</text>
+</g>
+<g >
+<title>0x735930461c76 (libcuda.so.580.95.05:0) (4,872,640 microjoules, 1.58%)</title><rect x="860.7" y="485" width="18.7" height="15.0" fill="rgb(231,119,28)" rx="2" ry="2" />
+<text  x="863.67" y="495.5" ></text>
+</g>
+<g >
+<title>c10::impl::wrap_kernel_functor_unboxed_&lt;c10::impl::detail::WrapFunctionIntoFunctor_&lt;c10::CompileTimeFunctionPointer&lt;at::Tensor(c10::ArrayRef&lt;c10::SymInt&gt;, std::optional&lt;c10::ScalarType&gt;, std::optional&lt;c10::Layout&gt;, std::optional&lt;c10::Device&gt;, std::optional&lt;bool&gt;, std::optional&lt;c10::MemoryFormat&gt;), &amp;at::(anonymous namespace)::empty_memory_format(c10::ArrayRef&lt;c10::SymInt&gt;, std::optional&lt;c10::ScalarType&gt;, std::optional&lt;c10::Layout&gt;, std::optional&lt;c10::Device&gt;, std::optional&lt;bool&gt;, std::optional&lt;c10::MemoryFormat&gt;)&gt;, at::Tensor, c10::guts::typelist::typelist&lt;c10::ArrayRef&lt;c10::SymInt&gt;, std::optional&lt;c10::ScalarType&gt;, std::optional&lt;c10::Layout&gt;, std::optional&lt;c10::Device&gt;, std::optional&lt;bool&gt;, std::optional&lt;c10::MemoryFormat&gt; &gt; &gt;, at::Tensor(c10::ArrayRef&lt;c10::SymInt&gt;, std::optional&lt;c10::ScalarType&gt;, std::optional&lt;c10::Layout&gt;, std::optional&lt;c10::Device&gt;, std::optional&lt;bool&gt;, std::optional&lt;c10::MemoryFormat&gt;)&gt;::call (libtorch_cpu.so:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="581" width="178.4" height="15.0" fill="rgb(205,2,0)" rx="2" ry="2" />
+<text  x="143.62" y="591.5" >c10::impl::wrap_kernel_..</text>
+</g>
+<g >
+<title>0x73592c2394f3 (libcudart.so.12:0) (408,686 microjoules, 0.13%)</title><rect x="1059.4" y="453" width="1.6" height="15.0" fill="rgb(254,226,54)" rx="2" ry="2" />
+<text  x="1062.41" y="463.5" ></text>
+</g>
+<g >
+<title>0x735930f9ccc9 (libcuda.so.580.95.05:0) (2,295,187 microjoules, 0.75%)</title><rect x="1143.9" y="405" width="8.9" height="15.0" fill="rgb(212,32,7)" rx="2" ry="2" />
+<text  x="1146.95" y="415.5" ></text>
+</g>
+<g >
+<title>THCPModule_cudaSynchronize (libtorch_python.so:0) (181,365,233 microjoules, 58.99%)</title><rect x="331.5" y="709" width="696.0" height="15.0" fill="rgb(222,82,19)" rx="2" ry="2" />
+<text  x="334.47" y="719.5" >THCPModule_cudaSynchronize (libtorch_python.so:0)</text>
+</g>
+<g >
+<title>0x7359301b8dd7 (libcuda.so.580.95.05:0) (581,313 microjoules, 0.19%)</title><rect x="326.3" y="165" width="2.3" height="15.0" fill="rgb(217,56,13)" rx="2" ry="2" />
+<text  x="329.32" y="175.5" ></text>
+</g>
+<g >
+<title>large_matmul (large_matmul_vs_tiny_kernels.py:31) (181,685,532 microjoules, 59.09%)</title><rect x="330.2" y="741" width="697.3" height="15.0" fill="rgb(251,211,50)" rx="2" ry="2" />
+<text  x="333.24" y="751.5" >large_matmul (large_matmul_vs_tiny_kernels.py:31)</text>
+</g>
+<g >
+<title>cudaGetDevice (libcudart.so.12:0) (1,457,023 microjoules, 0.47%)</title><rect x="1072.7" y="501" width="5.6" height="15.0" fill="rgb(239,159,38)" rx="2" ry="2" />
+<text  x="1075.66" y="511.5" ></text>
+</g>
+<g >
+<title>0x73582214ddd0 (libcublasLt.so.12:0) (223,874 microjoules, 0.07%)</title><rect x="328.6" y="149" width="0.8" height="15.0" fill="rgb(239,158,38)" rx="2" ry="2" />
+<text  x="331.55" y="159.5" ></text>
+</g>
+<g >
+<title>0x7358217e8874 (libcublasLt.so.12:0) (2,132,771 microjoules, 0.69%)</title><rect x="322.1" y="357" width="8.1" height="15.0" fill="rgb(224,87,20)" rx="2" ry="2" />
+<text  x="325.05" y="367.5" ></text>
+</g>
+<g >
+<title>0x735930461bcd (libcuda.so.580.95.05:0) (145,306 microjoules, 0.05%)</title><rect x="833.6" y="485" width="0.5" height="15.0" fill="rgb(206,5,1)" rx="2" ry="2" />
+<text  x="836.57" y="495.5" ></text>
+</g>
+<g >
+<title>c10::cuda::current_device (libc10_cuda.so:0) (1,457,023 microjoules, 0.47%)</title><rect x="1072.7" y="533" width="5.6" height="15.0" fill="rgb(226,101,24)" rx="2" ry="2" />
+<text  x="1075.66" y="543.5" ></text>
+</g>
+<g >
+<title>0x73592f91624b (libcupti.so.2025.1.1:0) (1,036,793 microjoules, 0.34%)</title><rect x="1051.4" y="357" width="4.0" height="15.0" fill="rgb(225,92,22)" rx="2" ry="2" />
+<text  x="1054.43" y="367.5" ></text>
+</g>
+<g >
+<title>pthread_mutex_lock (libc.so.6:0) (465,495 microjoules, 0.15%)</title><rect x="1039.6" y="693" width="1.8" height="15.0" fill="rgb(231,120,28)" rx="2" ry="2" />
+<text  x="1042.59" y="703.5" ></text>
+</g>
+<g >
+<title>c10::cuda::CUDACachingAllocator::Native::NativeCachingAllocator::allocate (libc10_cuda.so:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="421" width="178.4" height="15.0" fill="rgb(207,13,3)" rx="2" ry="2" />
+<text  x="143.62" y="431.5" >c10::cuda::CUDACachingA..</text>
+</g>
+<g >
+<title>at::(anonymous namespace)::structured_ufunc_add_CUDA_functional::set_output_raw_strided (libtorch_cuda.so:0) (3,648,060 microjoules, 1.19%)</title><rect x="1047.0" y="533" width="14.0" height="15.0" fill="rgb(224,90,21)" rx="2" ry="2" />
+<text  x="1049.98" y="543.5" ></text>
+</g>
+<g >
+<title>0x73592c211116 (libcudart.so.12:0) (276,496 microjoules, 0.09%)</title><rect x="1058.3" y="469" width="1.1" height="15.0" fill="rgb(211,28,6)" rx="2" ry="2" />
+<text  x="1061.35" y="479.5" ></text>
+</g>
+<g >
+<title>0x73592f9312a9 (libcupti.so.2025.1.1:0) (1,168,550 microjoules, 0.38%)</title><rect x="1173.2" y="485" width="4.5" height="15.0" fill="rgb(218,63,15)" rx="2" ry="2" />
+<text  x="1176.18" y="495.5" ></text>
+</g>
+<g >
+<title>0x73593047d113 (libcuda.so.580.95.05:0) (152,258 microjoules, 0.05%)</title><rect x="281.9" y="85" width="0.6" height="15.0" fill="rgb(226,97,23)" rx="2" ry="2" />
+<text  x="284.93" y="95.5" ></text>
+</g>
+<g >
+<title>torch::autograd::TypeError_to_NotImplemented_&lt;&amp;torch::autograd::THPVariable_matmul(_object*, _object*, _object*)&gt; (libtorch_python.so:0) (2,916,776 microjoules, 0.95%)</title><rect x="319.0" y="725" width="11.2" height="15.0" fill="rgb(209,21,5)" rx="2" ry="2" />
+<text  x="322.05" y="735.5" ></text>
+</g>
+<g >
+<title>0x73592f958b21 (libcupti.so.2025.1.1:0) (352,368 microjoules, 0.11%)</title><rect x="1081.3" y="485" width="1.4" height="15.0" fill="rgb(205,3,0)" rx="2" ry="2" />
+<text  x="1084.34" y="495.5" ></text>
+</g>
+<g >
+<title>0x735936306cb3 ([vdso]:0) (1,179,426 microjoules, 0.38%)</title><rect x="909.1" y="533" width="4.6" height="15.0" fill="rgb(242,173,41)" rx="2" ry="2" />
+<text  x="912.13" y="543.5" ></text>
+</g>
+<g >
+<title>0x73592f917d61 (libcupti.so.2025.1.1:0) (1,195,991 microjoules, 0.39%)</title><rect x="1132.2" y="405" width="4.6" height="15.0" fill="rgb(249,204,48)" rx="2" ry="2" />
+<text  x="1135.25" y="415.5" ></text>
+</g>
+<g >
+<title>c10::cuda::(anonymous namespace)::initCUDAStreamsOnce (libc10_cuda.so:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="389" width="178.4" height="15.0" fill="rgb(209,19,4)" rx="2" ry="2" />
+<text  x="143.62" y="399.5" >c10::cuda::(anonymous n..</text>
+</g>
+<g >
+<title>0x73592f950f67 (libcupti.so.2025.1.1:0) (699,406 microjoules, 0.23%)</title><rect x="1129.6" y="373" width="2.6" height="15.0" fill="rgb(217,55,13)" rx="2" ry="2" />
+<text  x="1132.56" y="383.5" ></text>
+</g>
+<g >
+<title>0x735936306c33 ([vdso]:0) (197,331 microjoules, 0.06%)</title><rect x="915.9" y="517" width="0.7" height="15.0" fill="rgb(246,190,45)" rx="2" ry="2" />
+<text  x="918.88" y="527.5" ></text>
+</g>
+<g >
+<title>0x73593042133b (libcuda.so.580.95.05:0) (283,018 microjoules, 0.09%)</title><rect x="1031.7" y="213" width="1.1" height="15.0" fill="rgb(208,16,3)" rx="2" ry="2" />
+<text  x="1034.69" y="223.5" ></text>
+</g>
+<g >
+<title>0x73592f90c9d7 (libcupti.so.2025.1.1:0) (1,852,898 microjoules, 0.60%)</title><rect x="1136.8" y="405" width="7.1" height="15.0" fill="rgb(213,38,9)" rx="2" ry="2" />
+<text  x="1139.84" y="415.5" ></text>
+</g>
+<g >
+<title>0x73592f917c50 (libcupti.so.2025.1.1:0) (699,406 microjoules, 0.23%)</title><rect x="1129.6" y="405" width="2.6" height="15.0" fill="rgb(218,63,15)" rx="2" ry="2" />
+<text  x="1132.56" y="415.5" ></text>
+</g>
+<g >
+<title>0x735930461bdd (libcuda.so.580.95.05:0) (1,305,642 microjoules, 0.42%)</title><rect x="834.1" y="485" width="5.0" height="15.0" fill="rgb(249,205,49)" rx="2" ry="2" />
+<text  x="837.13" y="495.5" ></text>
+</g>
+<g >
+<title>0x73582213e3a5 (libcublasLt.so.12:0) (439,537 microjoules, 0.14%)</title><rect x="328.6" y="213" width="1.6" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
+<text  x="331.55" y="223.5" ></text>
+</g>
+<g >
+<title>at::TensorIteratorBase::build_borrowing_binary_op (libtorch_cpu.so:0) (3,648,060 microjoules, 1.19%)</title><rect x="1047.0" y="581" width="14.0" height="15.0" fill="rgb(249,205,49)" rx="2" ry="2" />
+<text  x="1049.98" y="591.5" ></text>
+</g>
+<g >
+<title>0x73592f9152a0 (libcupti.so.2025.1.1:0) (276,496 microjoules, 0.09%)</title><rect x="1058.3" y="389" width="1.1" height="15.0" fill="rgb(213,41,9)" rx="2" ry="2" />
+<text  x="1061.35" y="399.5" ></text>
+</g>
+<g >
+<title>0x7359301aa4f9 (libcuda.so.580.95.05:0) (181,365,233 microjoules, 58.99%)</title><rect x="331.5" y="613" width="696.0" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
+<text  x="334.47" y="623.5" >0x7359301aa4f9 (libcuda.so.580.95.05:0)</text>
+</g>
+<g >
+<title>0x73592c213e89 (libcudart.so.12:0) (18,813,601 microjoules, 6.12%)</title><rect x="1094.5" y="533" width="72.2" height="15.0" fill="rgb(247,196,47)" rx="2" ry="2" />
+<text  x="1097.46" y="543.5" >0x73592c..</text>
+</g>
+<g >
+<title>0x73593033f373 (libcuda.so.580.95.05:0) (1,373,208 microjoules, 0.45%)</title><rect x="1027.5" y="373" width="5.3" height="15.0" fill="rgb(243,179,42)" rx="2" ry="2" />
+<text  x="1030.50" y="383.5" ></text>
+</g>
+<g >
+<title>0x7359302b8f9f (libcuda.so.580.95.05:0) (581,313 microjoules, 0.19%)</title><rect x="326.3" y="101" width="2.3" height="15.0" fill="rgb(222,78,18)" rx="2" ry="2" />
+<text  x="329.32" y="111.5" ></text>
+</g>
+<g >
+<title>0x735936306c3c ([vdso]:0) (180,458 microjoules, 0.06%)</title><rect x="968.9" y="517" width="0.7" height="15.0" fill="rgb(236,143,34)" rx="2" ry="2" />
+<text  x="971.89" y="527.5" ></text>
+</g>
+<g >
+<title>c10::impl::wrap_kernel_functor_unboxed_&lt;c10::impl::detail::WrapFunctionIntoFunctor_&lt;c10::CompileTimeFunctionPointer&lt;at::Tensor&amp; (at::Tensor&amp;), &amp;at::(anonymous namespace)::(anonymous namespace)::wrapper_CUDA__zero_(at::Tensor&amp;)&gt;, at::Tensor&amp;, c10::guts::typelist::typelist&lt;at::Tensor&amp;&gt; &gt;, at::Tensor&amp; (at::Tensor&amp;)&gt;::call (libtorch_cuda.so:0) (1,373,208 microjoules, 0.45%)</title><rect x="1027.5" y="613" width="5.3" height="15.0" fill="rgb(251,215,51)" rx="2" ry="2" />
+<text  x="1030.50" y="623.5" ></text>
+</g>
+<g >
+<title>0x735822532a0e (libcublasLt.so.12:0) (1,020,850 microjoules, 0.33%)</title><rect x="326.3" y="229" width="3.9" height="15.0" fill="rgb(206,5,1)" rx="2" ry="2" />
+<text  x="329.32" y="239.5" ></text>
+</g>
+<g >
+<title>0x73592c23b31a (libcudart.so.12:0) (1,733,342 microjoules, 0.56%)</title><rect x="1087.8" y="469" width="6.7" height="15.0" fill="rgb(241,166,39)" rx="2" ry="2" />
+<text  x="1090.81" y="479.5" ></text>
+</g>
+<g >
+<title>at::_ops::empty_memory_format::call (libtorch_cpu.so:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="597" width="178.4" height="15.0" fill="rgb(226,99,23)" rx="2" ry="2" />
+<text  x="143.62" y="607.5" >at::_ops::empty_memory_..</text>
+</g>
+<g >
+<title>0x73593040a29a (libcuda.so.580.95.05:0) (208,426 microjoules, 0.07%)</title><rect x="564.5" y="533" width="0.8" height="15.0" fill="rgb(235,140,33)" rx="2" ry="2" />
+<text  x="567.50" y="543.5" ></text>
+</g>
+<g >
+<title>0x735935f8950a (libc.so.6:0) (581,313 microjoules, 0.19%)</title><rect x="326.3" y="85" width="2.3" height="15.0" fill="rgb(226,100,24)" rx="2" ry="2" />
+<text  x="329.32" y="95.5" ></text>
+</g>
+<g >
+<title>0x735930fbaf14 (libcuda.so.580.95.05:0) (2,166,432 microjoules, 0.70%)</title><rect x="1152.8" y="437" width="8.3" height="15.0" fill="rgb(246,188,45)" rx="2" ry="2" />
+<text  x="1155.76" y="447.5" ></text>
+</g>
+<g >
+<title>c10::cuda::ExchangeDevice (libc10_cuda.so:0) (377,567 microjoules, 0.12%)</title><rect x="1056.9" y="421" width="1.4" height="15.0" fill="rgb(240,164,39)" rx="2" ry="2" />
+<text  x="1059.90" y="431.5" ></text>
+</g>
+<g >
+<title>at::native::randn (libtorch_cpu.so:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="629" width="178.4" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="143.62" y="639.5" >at::native::randn (libt..</text>
+</g>
+<g >
+<title>0x7359302db82b (libcuda.so.580.95.05:0) (581,313 microjoules, 0.19%)</title><rect x="326.3" y="133" width="2.3" height="15.0" fill="rgb(206,5,1)" rx="2" ry="2" />
+<text  x="329.32" y="143.5" ></text>
+</g>
+<g >
+<title>0x73592f90d695 (libcupti.so.2025.1.1:0) (1,078,976 microjoules, 0.35%)</title><rect x="1074.1" y="453" width="4.2" height="15.0" fill="rgb(217,55,13)" rx="2" ry="2" />
+<text  x="1077.11" y="463.5" ></text>
+</g>
+<g >
+<title>0x73593046f8ef (libcuda.so.580.95.05:0) (152,258 microjoules, 0.05%)</title><rect x="281.9" y="117" width="0.6" height="15.0" fill="rgb(209,19,4)" rx="2" ry="2" />
+<text  x="284.93" y="127.5" ></text>
+</g>
+<g >
+<title>0x735930f9d249 (libcuda.so.580.95.05:0) (9,518,718 microjoules, 3.10%)</title><rect x="282.5" y="101" width="36.5" height="15.0" fill="rgb(225,95,22)" rx="2" ry="2" />
+<text  x="285.51" y="111.5" >0x7..</text>
+</g>
+<g >
+<title>0x73592f917c50 (libcupti.so.2025.1.1:0) (352,368 microjoules, 0.11%)</title><rect x="1081.3" y="517" width="1.4" height="15.0" fill="rgb(218,63,15)" rx="2" ry="2" />
+<text  x="1084.34" y="527.5" ></text>
+</g>
+<g >
+<title>0x735935f8950a (libc.so.6:0) (521,745 microjoules, 0.17%)</title><rect x="1085.8" y="293" width="2.0" height="15.0" fill="rgb(226,100,24)" rx="2" ry="2" />
+<text  x="1088.81" y="303.5" ></text>
+</g>
+<g >
+<title>0x73593021f163 (libcuda.so.580.95.05:0) (13,902,485 microjoules, 4.52%)</title><rect x="602.4" y="501" width="53.4" height="15.0" fill="rgb(232,127,30)" rx="2" ry="2" />
+<text  x="605.45" y="511.5" >0x735..</text>
+</g>
+<g >
+<title>0x73593020f4d3 (libcuda.so.580.95.05:0) (458,984 microjoules, 0.15%)</title><rect x="1166.7" y="501" width="1.7" height="15.0" fill="rgb(222,81,19)" rx="2" ry="2" />
+<text  x="1169.67" y="511.5" ></text>
+</g>
+<g >
+<title>0x7359304a7d50 (libcuda.so.580.95.05:0) (699,406 microjoules, 0.23%)</title><rect x="1129.6" y="357" width="2.6" height="15.0" fill="rgb(209,21,5)" rx="2" ry="2" />
+<text  x="1132.56" y="367.5" ></text>
+</g>
+<g >
+<title>0x7359302299e4 (libcuda.so.580.95.05:0) (5,040,540 microjoules, 1.64%)</title><rect x="263.2" y="149" width="19.3" height="15.0" fill="rgb(205,0,0)" rx="2" ry="2" />
+<text  x="266.17" y="159.5" ></text>
+</g>
+<g >
+<title>0x73592f90c62b (libcupti.so.2025.1.1:0) (3,772,469 microjoules, 1.23%)</title><rect x="1115.1" y="405" width="14.5" height="15.0" fill="rgb(228,106,25)" rx="2" ry="2" />
+<text  x="1118.09" y="415.5" ></text>
+</g>
+<g >
+<title>0x735930f9d230 (libcuda.so.580.95.05:0) (555,373 microjoules, 0.18%)</title><rect x="527.7" y="549" width="2.2" height="15.0" fill="rgb(240,162,38)" rx="2" ry="2" />
+<text  x="530.73" y="559.5" ></text>
+</g>
+<g >
+<title>0x7359302db82b (libcuda.so.580.95.05:0) (172,890 microjoules, 0.06%)</title><rect x="323.6" y="133" width="0.6" height="15.0" fill="rgb(206,5,1)" rx="2" ry="2" />
+<text  x="326.58" y="143.5" ></text>
+</g>
+<g >
+<title>0x735930461b6b (libcuda.so.580.95.05:0) (467,432 microjoules, 0.15%)</title><rect x="720.9" y="485" width="1.8" height="15.0" fill="rgb(209,21,5)" rx="2" ry="2" />
+<text  x="723.88" y="495.5" ></text>
+</g>
+<g >
+<title>0x7359302244b1 (libcuda.so.580.95.05:0) (1,942,698 microjoules, 0.63%)</title><rect x="1143.9" y="389" width="7.5" height="15.0" fill="rgb(208,16,3)" rx="2" ry="2" />
+<text  x="1146.95" y="399.5" ></text>
+</g>
+<g >
+<title>at::detail::empty_cuda (libtorch_cuda.so:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="485" width="178.4" height="15.0" fill="rgb(219,65,15)" rx="2" ry="2" />
+<text  x="143.62" y="495.5" >at::detail::empty_cuda ..</text>
+</g>
+<g >
+<title>0x73593027f515 (libcuda.so.580.95.05:0) (1,733,342 microjoules, 0.56%)</title><rect x="1087.8" y="325" width="6.7" height="15.0" fill="rgb(237,149,35)" rx="2" ry="2" />
+<text  x="1090.81" y="335.5" ></text>
+</g>
+<g >
+<title>0x73593021f17a (libcuda.so.580.95.05:0) (1,693,544 microjoules, 0.55%)</title><rect x="662.0" y="501" width="6.5" height="15.0" fill="rgb(229,110,26)" rx="2" ry="2" />
+<text  x="665.01" y="511.5" ></text>
+</g>
+<g >
+<title>c10::impl::wrap_kernel_functor_unboxed_&lt;c10::impl::detail::WrapFunctionIntoFunctor_&lt;c10::CompileTimeFunctionPointer&lt;at::Tensor(c10::DispatchKeySet, at::Tensor const&amp;, at::Tensor const&amp;, c10::Scalar const&amp;), &amp;torch::autograd::VariableType::(anonymous namespace)::add_Tensor(c10::DispatchKeySet, at::Tensor const&amp;, at::Tensor const&amp;, c10::Scalar const&amp;)&gt;, at::Tensor, c10::guts::typelist::typelist&lt;c10::DispatchKeySet, at::Tensor const&amp;, at::Tensor const&amp;, c10::Scalar const&amp;&gt; &gt;, at::Tensor(c10::DispatchKeySet, at::Tensor const&amp;, at::Tensor const&amp;, c10::Scalar const&amp;)&gt;::call (libtorch_cpu.so:0) (35,978,682 microjoules, 11.70%)</title><rect x="1042.6" y="677" width="138.1" height="15.0" fill="rgb(236,144,34)" rx="2" ry="2" />
+<text  x="1045.58" y="687.5" >c10::impl::wrap_k..</text>
+</g>
+<g >
+<title>0x735930251ce2 (libcuda.so.580.95.05:0) (181,365,233 microjoules, 58.99%)</title><rect x="331.5" y="581" width="696.0" height="15.0" fill="rgb(229,110,26)" rx="2" ry="2" />
+<text  x="334.47" y="591.5" >0x735930251ce2 (libcuda.so.580.95.05:0)</text>
+</g>
+<g >
+<title>cuLibraryGetModule (libcuda.so.580.95.05:0) (1,373,208 microjoules, 0.45%)</title><rect x="1027.5" y="389" width="5.3" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
+<text  x="1030.50" y="399.5" ></text>
+</g>
+<g >
+<title>0x7359301b8dd7 (libcuda.so.580.95.05:0) (569,525 microjoules, 0.19%)</title><rect x="322.1" y="165" width="2.1" height="15.0" fill="rgb(217,56,13)" rx="2" ry="2" />
+<text  x="325.05" y="175.5" ></text>
+</g>
+<g >
+<title>0x7359304ae696 (libcuda.so.580.95.05:0) (1,156,276 microjoules, 0.38%)</title><rect x="1078.3" y="533" width="4.4" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1081.25" y="543.5" ></text>
+</g>
+<g >
+<title>0x73592f917c50 (libcupti.so.2025.1.1:0) (1,852,898 microjoules, 0.60%)</title><rect x="1136.8" y="421" width="7.1" height="15.0" fill="rgb(218,63,15)" rx="2" ry="2" />
+<text  x="1139.84" y="431.5" ></text>
+</g>
+<g >
+<title>c10::cuda::impl::CUDAGuardImpl::exchangeDevice (libc10_cuda.so:0) (377,567 microjoules, 0.12%)</title><rect x="1056.9" y="437" width="1.4" height="15.0" fill="rgb(220,70,16)" rx="2" ry="2" />
+<text  x="1059.90" y="447.5" ></text>
+</g>
+<g >
+<title>0x735930461b41 (libcuda.so.580.95.05:0) (632,062 microjoules, 0.21%)</title><rect x="685.9" y="485" width="2.4" height="15.0" fill="rgb(239,157,37)" rx="2" ry="2" />
+<text  x="688.91" y="495.5" ></text>
+</g>
+<g >
+<title>cudaGetDevice (libcudart.so.12:0) (1,598,950 microjoules, 0.52%)</title><rect x="1171.5" y="565" width="6.2" height="15.0" fill="rgb(239,159,38)" rx="2" ry="2" />
+<text  x="1174.53" y="575.5" ></text>
+</g>
+<g >
+<title>0x73592f917c21 (libcupti.so.2025.1.1:0) (803,908 microjoules, 0.26%)</title><rect x="1078.3" y="517" width="3.0" height="15.0" fill="rgb(231,122,29)" rx="2" ry="2" />
+<text  x="1081.25" y="527.5" ></text>
+</g>
+<g >
+<title>large_matmul (large_matmul_vs_tiny_kernels.py:24) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="741" width="178.4" height="15.0" fill="rgb(238,152,36)" rx="2" ry="2" />
+<text  x="143.62" y="751.5" >large_matmul (large_mat..</text>
+</g>
+<g >
+<title>c10::cuda::GetDevice (libc10_cuda.so:0) (1,457,023 microjoules, 0.47%)</title><rect x="1072.7" y="517" width="5.6" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="1075.66" y="527.5" ></text>
+</g>
+<g >
+<title>torch::autograd::VariableType::(anonymous namespace)::mm (libtorch_cpu.so:0) (2,916,776 microjoules, 0.95%)</title><rect x="319.0" y="597" width="11.2" height="15.0" fill="rgb(211,27,6)" rx="2" ry="2" />
+<text  x="322.05" y="607.5" ></text>
+</g>
+<g >
+<title>__pthread_rwlock_wrlock (libc.so.6:0) (372,006 microjoules, 0.12%)</title><rect x="1104.0" y="437" width="1.4" height="15.0" fill="rgb(235,138,33)" rx="2" ry="2" />
+<text  x="1106.98" y="447.5" ></text>
+</g>
+<g >
+<title>0x735930335b64 (libcuda.so.580.95.05:0) (449,529 microjoules, 0.15%)</title><rect x="1169.8" y="533" width="1.7" height="15.0" fill="rgb(206,8,2)" rx="2" ry="2" />
+<text  x="1172.80" y="543.5" ></text>
+</g>
+<g >
+<title>at::native::fill_kernel_cuda (libtorch_cuda.so:0) (1,373,208 microjoules, 0.45%)</title><rect x="1027.5" y="533" width="5.3" height="15.0" fill="rgb(214,41,10)" rx="2" ry="2" />
+<text  x="1030.50" y="543.5" ></text>
+</g>
+<g >
+<title>0x73582216dfd8 (libcublasLt.so.12:0) (2,132,771 microjoules, 0.69%)</title><rect x="322.1" y="277" width="8.1" height="15.0" fill="rgb(212,32,7)" rx="2" ry="2" />
+<text  x="325.05" y="287.5" ></text>
+</g>
+<g >
+<title>0x7359301d3954 (libcuda.so.580.95.05:0) (381,055 microjoules, 0.12%)</title><rect x="1101.4" y="453" width="1.5" height="15.0" fill="rgb(237,149,35)" rx="2" ry="2" />
+<text  x="1104.39" y="463.5" ></text>
+</g>
+<g >
+<title>0x735930f9d24b (libcuda.so.580.95.05:0) (779,928 microjoules, 0.25%)</title><rect x="531.0" y="549" width="3.0" height="15.0" fill="rgb(210,26,6)" rx="2" ry="2" />
+<text  x="533.96" y="559.5" ></text>
+</g>
+<g >
+<title>0x735930222de2 (libcuda.so.580.95.05:0) (5,040,540 microjoules, 1.64%)</title><rect x="263.2" y="133" width="19.3" height="15.0" fill="rgb(235,140,33)" rx="2" ry="2" />
+<text  x="266.17" y="143.5" ></text>
+</g>
+<g >
+<title>0x73592f9157da (libcupti.so.2025.1.1:0) (224,418 microjoules, 0.07%)</title><rect x="1094.5" y="453" width="0.8" height="15.0" fill="rgb(245,187,44)" rx="2" ry="2" />
+<text  x="1097.46" y="463.5" ></text>
+</g>
+<g >
+<title>0x7359301d5a43 (libcuda.so.580.95.05:0) (1,457,691 microjoules, 0.47%)</title><rect x="1161.1" y="469" width="5.6" height="15.0" fill="rgb(229,110,26)" rx="2" ry="2" />
+<text  x="1164.07" y="479.5" ></text>
+</g>
+<g >
+<title>0x7359302c0275 (libcuda.so.580.95.05:0) (1,733,342 microjoules, 0.56%)</title><rect x="1087.8" y="405" width="6.7" height="15.0" fill="rgb(232,127,30)" rx="2" ry="2" />
+<text  x="1090.81" y="415.5" ></text>
+</g>
+<g >
+<title>0x73593022bccc (libcuda.so.580.95.05:0) (406,125 microjoules, 0.13%)</title><rect x="1030.1" y="277" width="1.6" height="15.0" fill="rgb(228,107,25)" rx="2" ry="2" />
+<text  x="1033.13" y="287.5" ></text>
+</g>
+<g >
+<title>at::detail::empty_cuda (libtorch_cuda.so:0) (2,962,878 microjoules, 0.96%)</title><rect x="1047.0" y="469" width="11.3" height="15.0" fill="rgb(219,65,15)" rx="2" ry="2" />
+<text  x="1049.98" y="479.5" ></text>
+</g>
+<g >
+<title>0x735936306c72 ([vdso]:0) (480,821 microjoules, 0.16%)</title><rect x="977.0" y="517" width="1.9" height="15.0" fill="rgb(226,101,24)" rx="2" ry="2" />
+<text  x="980.03" y="527.5" ></text>
+</g>
+<g >
+<title>cublasLtSSSMatmulAlgoGetHeuristic (libcublasLt.so.12:0) (2,132,771 microjoules, 0.69%)</title><rect x="322.1" y="405" width="8.1" height="15.0" fill="rgb(226,97,23)" rx="2" ry="2" />
+<text  x="325.05" y="415.5" ></text>
+</g>
+<g >
+<title>0x73592c23b2f2 (libcudart.so.12:0) (521,745 microjoules, 0.17%)</title><rect x="1085.8" y="469" width="2.0" height="15.0" fill="rgb(208,17,4)" rx="2" ry="2" />
+<text  x="1088.81" y="479.5" ></text>
+</g>
+<g >
+<title>0x73593031bc04 (libcuda.so.580.95.05:0) (406,125 microjoules, 0.13%)</title><rect x="1030.1" y="261" width="1.6" height="15.0" fill="rgb(211,29,7)" rx="2" ry="2" />
+<text  x="1033.13" y="271.5" ></text>
+</g>
+<g >
+<title>0x7359302dc62a (libcuda.so.580.95.05:0) (569,525 microjoules, 0.19%)</title><rect x="322.1" y="149" width="2.1" height="15.0" fill="rgb(219,64,15)" rx="2" ry="2" />
+<text  x="325.05" y="159.5" ></text>
+</g>
+<g >
+<title>at::_ops::matmul::call (libtorch_cpu.so:0) (2,916,776 microjoules, 0.95%)</title><rect x="319.0" y="693" width="11.2" height="15.0" fill="rgb(215,49,11)" rx="2" ry="2" />
+<text  x="322.05" y="703.5" ></text>
+</g>
+<g >
+<title>0x735930f5cafb (libcuda.so.580.95.05:0) (283,018 microjoules, 0.09%)</title><rect x="1031.7" y="149" width="1.1" height="15.0" fill="rgb(216,53,12)" rx="2" ry="2" />
+<text  x="1034.69" y="159.5" ></text>
+</g>
+<g >
+<title>0x735930461ba8 (libcuda.so.580.95.05:0) (875,197 microjoules, 0.28%)</title><rect x="808.2" y="485" width="3.3" height="15.0" fill="rgb(253,221,53)" rx="2" ry="2" />
+<text  x="811.15" y="495.5" ></text>
+</g>
+<g >
+<title>c10::cuda::CUDACachingAllocator::Native::DeviceCachingAllocator::alloc_found_block (libc10_cuda.so:0) (852,279 microjoules, 0.28%)</title><rect x="1047.0" y="357" width="3.2" height="15.0" fill="rgb(240,164,39)" rx="2" ry="2" />
+<text  x="1049.98" y="367.5" ></text>
+</g>
+<g >
+<title>0x73592c213e31 (libcudart.so.12:0) (2,255,087 microjoules, 0.73%)</title><rect x="1085.8" y="533" width="8.7" height="15.0" fill="rgb(231,123,29)" rx="2" ry="2" />
+<text  x="1088.81" y="543.5" ></text>
+</g>
+<g >
+<title>0x73592f958bee (libcupti.so.2025.1.1:0) (1,078,976 microjoules, 0.35%)</title><rect x="1074.1" y="437" width="4.2" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
+<text  x="1077.11" y="447.5" ></text>
+</g>
+<g >
+<title>at::(anonymous namespace)::wrapper_CUDA_mm (libtorch_cuda.so:0) (2,916,776 microjoules, 0.95%)</title><rect x="319.0" y="549" width="11.2" height="15.0" fill="rgb(242,174,41)" rx="2" ry="2" />
+<text  x="322.05" y="559.5" ></text>
+</g>
+<g >
+<title>0x735930f9d25b (libcuda.so.580.95.05:0) (297,636 microjoules, 0.10%)</title><rect x="542.5" y="549" width="1.1" height="15.0" fill="rgb(254,227,54)" rx="2" ry="2" />
+<text  x="545.49" y="559.5" ></text>
+</g>
+<g >
+<title>cudaGetDevice (libcudart.so.12:0) (377,567 microjoules, 0.12%)</title><rect x="1056.9" y="405" width="1.4" height="15.0" fill="rgb(239,159,38)" rx="2" ry="2" />
+<text  x="1059.90" y="415.5" ></text>
+</g>
+<g >
+<title>0x735936306c3f ([vdso]:0) (157,593 microjoules, 0.05%)</title><rect x="969.6" y="517" width="0.6" height="15.0" fill="rgb(216,54,13)" rx="2" ry="2" />
+<text  x="972.59" y="527.5" ></text>
+</g>
+<g >
+<title>0x73592fb55ce4 (libcupti.so.2025.1.1:0) (1,016,825 microjoules, 0.33%)</title><rect x="1125.7" y="325" width="3.9" height="15.0" fill="rgb(205,0,0)" rx="2" ry="2" />
+<text  x="1128.66" y="335.5" ></text>
+</g>
+<g >
+<title>ioctl (libc.so.6:0) (4,888,282 microjoules, 1.59%)</title><rect x="263.2" y="53" width="18.7" height="15.0" fill="rgb(215,47,11)" rx="2" ry="2" />
+<text  x="266.17" y="63.5" ></text>
+</g>
+<g >
+<title>0x73593031bc04 (libcuda.so.580.95.05:0) (18,724,735 microjoules, 6.09%)</title><rect x="907.7" y="549" width="71.8" height="15.0" fill="rgb(211,29,7)" rx="2" ry="2" />
+<text  x="910.68" y="559.5" >0x735930..</text>
+</g>
+<g >
+<title>at::detail::_empty_generic&lt;long&gt; (libtorch_cpu.so:0) (852,279 microjoules, 0.28%)</title><rect x="1047.0" y="437" width="3.2" height="15.0" fill="rgb(208,16,4)" rx="2" ry="2" />
+<text  x="1049.98" y="447.5" ></text>
+</g>
+<g >
+<title>0x73592f95cdcd (libcupti.so.2025.1.1:0) (649,402 microjoules, 0.21%)</title><rect x="1141.5" y="389" width="2.4" height="15.0" fill="rgb(219,65,15)" rx="2" ry="2" />
+<text  x="1144.46" y="399.5" ></text>
+</g>
+<g >
+<title>0x735930461bc9 (libcuda.so.580.95.05:0) (613,322 microjoules, 0.20%)</title><rect x="831.2" y="485" width="2.4" height="15.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="834.22" y="495.5" ></text>
+</g>
+<g >
+<title>0x73592f91624b (libcupti.so.2025.1.1:0) (224,418 microjoules, 0.07%)</title><rect x="1094.5" y="469" width="0.8" height="15.0" fill="rgb(225,92,22)" rx="2" ry="2" />
+<text  x="1097.46" y="479.5" ></text>
+</g>
+<g >
+<title>0x73582215c4e0 (libcublasLt.so.12:0) (439,537 microjoules, 0.14%)</title><rect x="328.6" y="197" width="1.6" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
+<text  x="331.55" y="207.5" ></text>
+</g>
+<g >
+<title>0x735935ebaa6e (libc.so.6:0) (396,635 microjoules, 0.13%)</title><rect x="322.1" y="101" width="1.5" height="15.0" fill="rgb(254,228,54)" rx="2" ry="2" />
+<text  x="325.05" y="111.5" ></text>
+</g>
+<g >
+<title>c10::impl::ExcludeDispatchKeyGuard::~ExcludeDispatchKeyGuard (libc10.so:0) (780,041 microjoules, 0.25%)</title><rect x="1177.7" y="645" width="3.0" height="15.0" fill="rgb(233,131,31)" rx="2" ry="2" />
+<text  x="1180.66" y="655.5" ></text>
+</g>
+<g >
+<title>at::meta::structured_add_Tensor::meta (libtorch_cpu.so:0) (3,648,060 microjoules, 1.19%)</title><rect x="1047.0" y="597" width="14.0" height="15.0" fill="rgb(234,137,32)" rx="2" ry="2" />
+<text  x="1049.98" y="607.5" ></text>
+</g>
+<g >
+<title>0x7359301d63ce (libcuda.so.580.95.05:0) (17,007,726 microjoules, 5.53%)</title><rect x="1101.4" y="485" width="65.3" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
+<text  x="1104.39" y="495.5" >0x73593..</text>
+</g>
+<g >
+<title>0x73592c2421c0 (libcudart.so.12:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="309" width="178.4" height="15.0" fill="rgb(251,212,50)" rx="2" ry="2" />
+<text  x="143.62" y="319.5" >0x73592c2421c0 (libcuda..</text>
+</g>
+<g >
+<title>0x73593044b5b2 (libcuda.so.580.95.05:0) (283,018 microjoules, 0.09%)</title><rect x="1031.7" y="277" width="1.1" height="15.0" fill="rgb(222,81,19)" rx="2" ry="2" />
+<text  x="1034.69" y="287.5" ></text>
+</g>
+<g >
+<title>0x7359301837aa (libcuda.so.580.95.05:0) (1,180,003 microjoules, 0.38%)</title><rect x="1107.8" y="421" width="4.5" height="15.0" fill="rgb(209,21,5)" rx="2" ry="2" />
+<text  x="1110.76" y="431.5" ></text>
+</g>
+<g >
+<title>0x735930f9d303 (libcuda.so.580.95.05:0) (458,084 microjoules, 0.15%)</title><rect x="571.1" y="549" width="1.7" height="15.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="574.09" y="559.5" ></text>
+</g>
+<g >
+<title>0x7359302bff08 (libcuda.so.580.95.05:0) (1,733,342 microjoules, 0.56%)</title><rect x="1087.8" y="389" width="6.7" height="15.0" fill="rgb(230,116,27)" rx="2" ry="2" />
+<text  x="1090.81" y="399.5" ></text>
+</g>
+<g >
+<title>at::native::(anonymous namespace)::addmm_out_cuda_impl (libtorch_cuda.so:0) (2,916,776 microjoules, 0.95%)</title><rect x="319.0" y="517" width="11.2" height="15.0" fill="rgb(246,191,45)" rx="2" ry="2" />
+<text  x="322.05" y="527.5" ></text>
+</g>
+<g >
+<title>0x735930461bae (libcuda.so.580.95.05:0) (1,613,033 microjoules, 0.52%)</title><rect x="815.5" y="485" width="6.2" height="15.0" fill="rgb(212,34,8)" rx="2" ry="2" />
+<text  x="818.51" y="495.5" ></text>
+</g>
+<g >
+<title>c10::ThreadLocalDebugInfo::get (libc10.so:0) (852,279 microjoules, 0.28%)</title><rect x="1047.0" y="325" width="3.2" height="15.0" fill="rgb(232,127,30)" rx="2" ry="2" />
+<text  x="1049.98" y="335.5" ></text>
+</g>
+<g >
+<title>0x73593047d098 (libcuda.so.580.95.05:0) (4,888,282 microjoules, 1.59%)</title><rect x="263.2" y="101" width="18.7" height="15.0" fill="rgb(248,201,48)" rx="2" ry="2" />
+<text  x="266.17" y="111.5" ></text>
+</g>
+<g >
+<title>c10::cuda::CUDACachingAllocator::Native::DeviceCachingAllocator::malloc (libc10_cuda.so:0) (852,279 microjoules, 0.28%)</title><rect x="1047.0" y="373" width="3.2" height="15.0" fill="rgb(230,118,28)" rx="2" ry="2" />
+<text  x="1049.98" y="383.5" ></text>
+</g>
+<g >
+<title>c10::impl::InlineOptionalDeviceGuard&lt;c10::cuda::impl::CUDAGuardImpl&gt;::reset_device&lt;c10::cuda::impl::CUDAGuardImpl, void&gt; (libtorch_cuda.so:0) (685,182 microjoules, 0.22%)</title><rect x="1058.3" y="517" width="2.7" height="15.0" fill="rgb(243,177,42)" rx="2" ry="2" />
+<text  x="1061.35" y="527.5" ></text>
+</g>
+<g >
+<title>at::detail::empty_generic (libtorch_cpu.so:0) (319,185 microjoules, 0.10%)</title><rect x="1188.8" y="613" width="1.2" height="15.0" fill="rgb(251,212,50)" rx="2" ry="2" />
+<text  x="1191.78" y="623.5" ></text>
+</g>
+<g >
+<title>0x73593033560a (libcuda.so.580.95.05:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="229" width="178.4" height="15.0" fill="rgb(239,157,37)" rx="2" ry="2" />
+<text  x="143.62" y="239.5" >0x73593033560a (libcuda..</text>
+</g>
+<g >
+<title>0x7359302675f1 (libcuda.so.580.95.05:0) (396,635 microjoules, 0.13%)</title><rect x="322.1" y="117" width="1.5" height="15.0" fill="rgb(231,119,28)" rx="2" ry="2" />
+<text  x="325.05" y="127.5" ></text>
+</g>
+<g >
+<title>0x73593026ec36 (libcuda.so.580.95.05:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="181" width="178.4" height="15.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="143.62" y="191.5" >0x73593026ec36 (libcuda..</text>
+</g>
+<g >
+<title>at::_ops::randn::redispatch (libtorch_cpu.so:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="677" width="178.4" height="15.0" fill="rgb(217,58,14)" rx="2" ry="2" />
+<text  x="143.62" y="687.5" >at::_ops::randn::redisp..</text>
+</g>
+<g >
+<title>tiny_kernels (large_matmul_vs_tiny_kernels.py:43) (40,626,125 microjoules, 13.21%)</title><rect x="1034.1" y="741" width="155.9" height="15.0" fill="rgb(244,180,43)" rx="2" ry="2" />
+<text  x="1037.09" y="751.5" >tiny_kernels (large_..</text>
+</g>
+<g >
+<title>0x73593033e2dc (libcuda.so.580.95.05:0) (581,313 microjoules, 0.19%)</title><rect x="326.3" y="181" width="2.3" height="15.0" fill="rgb(206,5,1)" rx="2" ry="2" />
+<text  x="329.32" y="191.5" ></text>
+</g>
+<g >
+<title>0x73593022bcb6 (libcuda.so.580.95.05:0) (693,212 microjoules, 0.23%)</title><rect x="904.1" y="565" width="2.7" height="15.0" fill="rgb(225,94,22)" rx="2" ry="2" />
+<text  x="907.13" y="575.5" ></text>
+</g>
+<g >
+<title>0x73593025cab6 (libcuda.so.580.95.05:0) (684,065 microjoules, 0.22%)</title><rect x="1027.5" y="261" width="2.6" height="15.0" fill="rgb(212,34,8)" rx="2" ry="2" />
+<text  x="1030.50" y="271.5" ></text>
+</g>
+<g >
+<title>0x735930f9d439 (libcuda.so.580.95.05:0) (162,218 microjoules, 0.05%)</title><rect x="575.4" y="549" width="0.6" height="15.0" fill="rgb(219,65,15)" rx="2" ry="2" />
+<text  x="578.41" y="559.5" ></text>
+</g>
+<g >
+<title>0x7359304078ac (libcuda.so.580.95.05:0) (738,381 microjoules, 0.24%)</title><rect x="580.0" y="533" width="2.8" height="15.0" fill="rgb(246,192,45)" rx="2" ry="2" />
+<text  x="582.96" y="543.5" ></text>
+</g>
+<g >
+<title>0x73592fb55c9c (libcupti.so.2025.1.1:0) (2,388,074 microjoules, 0.78%)</title><rect x="1116.5" y="325" width="9.2" height="15.0" fill="rgb(235,141,33)" rx="2" ry="2" />
+<text  x="1119.50" y="335.5" ></text>
+</g>
+<g >
+<title>0x73593048ee48 (libcuda.so.580.95.05:0) (684,065 microjoules, 0.22%)</title><rect x="1027.5" y="149" width="2.6" height="15.0" fill="rgb(225,95,22)" rx="2" ry="2" />
+<text  x="1030.50" y="159.5" ></text>
+</g>
+<g >
+<title>0x73593021f011 (libcuda.so.580.95.05:0) (9,518,718 microjoules, 3.10%)</title><rect x="282.5" y="133" width="36.5" height="15.0" fill="rgb(234,135,32)" rx="2" ry="2" />
+<text  x="285.51" y="143.5" >0x7..</text>
+</g>
+<g >
+<title>0x73593025de55 (libcuda.so.580.95.05:0) (446,654 microjoules, 0.15%)</title><rect x="895.1" y="517" width="1.7" height="15.0" fill="rgb(227,103,24)" rx="2" ry="2" />
+<text  x="898.08" y="527.5" ></text>
+</g>
+<g >
+<title>0x735822533026 (libcublasLt.so.12:0) (2,132,771 microjoules, 0.69%)</title><rect x="322.1" y="245" width="8.1" height="15.0" fill="rgb(206,8,2)" rx="2" ry="2" />
+<text  x="325.05" y="255.5" ></text>
+</g>
+<g >
+<title>0x735930fbceeb (libcuda.so.580.95.05:0) (1,895,397 microjoules, 0.62%)</title><rect x="1129.6" y="421" width="7.2" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="1132.56" y="431.5" ></text>
+</g>
+<g >
+<title>c10::impl::wrap_kernel_functor_unboxed_&lt;c10::impl::detail::WrapFunctionIntoFunctor_&lt;c10::CompileTimeFunctionPointer&lt;at::Tensor(c10::ArrayRef&lt;c10::SymInt&gt;, std::optional&lt;c10::ScalarType&gt;, std::optional&lt;c10::Layout&gt;, std::optional&lt;c10::Device&gt;, std::optional&lt;bool&gt;), &amp;at::(anonymous namespace)::randn(c10::ArrayRef&lt;c10::SymInt&gt;, std::optional&lt;c10::ScalarType&gt;, std::optional&lt;c10::Layout&gt;, std::optional&lt;c10::Device&gt;, std::optional&lt;bool&gt;)&gt;, at::Tensor, c10::guts::typelist::typelist&lt;c10::ArrayRef&lt;c10::SymInt&gt;, std::optional&lt;c10::ScalarType&gt;, std::optional&lt;c10::Layout&gt;, std::optional&lt;c10::Device&gt;, std::optional&lt;bool&gt; &gt; &gt;, at::Tensor(c10::ArrayRef&lt;c10::SymInt&gt;, std::optional&lt;c10::ScalarType&gt;, std::optional&lt;c10::Layout&gt;, std::optional&lt;c10::Device&gt;, std::optional&lt;bool&gt;)&gt;::call (libtorch_cpu.so:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="693" width="178.4" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="143.62" y="703.5" >c10::impl::wrap_kernel_..</text>
+</g>
+<g >
+<title>c10::intrusive_ptr&lt;c10::TensorImpl, c10::UndefinedTensorImpl&gt;::reset_ (libtorch_python.so:0) (356,258 microjoules, 0.12%)</title><rect x="1036.5" y="693" width="1.4" height="15.0" fill="rgb(237,148,35)" rx="2" ry="2" />
+<text  x="1039.55" y="703.5" ></text>
+</g>
+<g >
+<title>0x73593049cd92 (libcuda.so.580.95.05:0) (2,166,432 microjoules, 0.70%)</title><rect x="1152.8" y="405" width="8.3" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1155.76" y="415.5" ></text>
+</g>
+<g >
+<title>0x73593047982d (libcuda.so.580.95.05:0) (784,005 microjoules, 0.25%)</title><rect x="319.0" y="261" width="3.1" height="15.0" fill="rgb(235,141,33)" rx="2" ry="2" />
+<text  x="322.05" y="271.5" ></text>
+</g>
+<g >
+<title>0x73592f95cd73 (libcupti.so.2025.1.1:0) (1,203,496 microjoules, 0.39%)</title><rect x="1136.8" y="389" width="4.7" height="15.0" fill="rgb(219,68,16)" rx="2" ry="2" />
+<text  x="1139.84" y="399.5" ></text>
+</g>
+<g >
+<title>c10::impl::wrap_kernel_functor_unboxed_&lt;c10::impl::detail::WrapFunctionIntoFunctor_&lt;c10::CompileTimeFunctionPointer&lt;at::Tensor(c10::ArrayRef&lt;c10::SymInt&gt;, std::optional&lt;c10::ScalarType&gt;, std::optional&lt;c10::Layout&gt;, std::optional&lt;c10::Device&gt;, std::optional&lt;bool&gt;), &amp;at::(anonymous namespace)::(anonymous namespace)::wrapper_CompositeExplicitAutograd__zeros(c10::ArrayRef&lt;c10::SymInt&gt;, std::optional&lt;c10::ScalarType&gt;, std::optional&lt;c10::Layout&gt;, std::optional&lt;c10::Device&gt;, std::optional&lt;bool&gt;)&gt;, at::Tensor, c10::guts::typelist::typelist&lt;c10::ArrayRef&lt;c10::SymInt&gt;, std::optional&lt;c10::ScalarType&gt;, std::optional&lt;c10::Layout&gt;, std::optional&lt;c10::Device&gt;, std::optional&lt;bool&gt; &gt; &gt;, at::Tensor(c10::ArrayRef&lt;c10::SymInt&gt;, std::optional&lt;c10::ScalarType&gt;, std::optional&lt;c10::Layout&gt;, std::optional&lt;c10::Device&gt;, std::optional&lt;bool&gt;)&gt;::call (libtorch_cpu.so:0) (1,373,208 microjoules, 0.45%)</title><rect x="1027.5" y="661" width="5.3" height="15.0" fill="rgb(249,202,48)" rx="2" ry="2" />
+<text  x="1030.50" y="671.5" ></text>
+</g>
+<g >
+<title>c10::cuda::MaybeSetDevice (libc10_cuda.so:0) (449,529 microjoules, 0.15%)</title><rect x="1169.8" y="581" width="1.7" height="15.0" fill="rgb(248,201,48)" rx="2" ry="2" />
+<text  x="1172.80" y="591.5" ></text>
+</g>
+<g >
+<title>0x735930333133 (libcuda.so.580.95.05:0) (387,900 microjoules, 0.13%)</title><rect x="1055.4" y="373" width="1.5" height="15.0" fill="rgb(212,32,7)" rx="2" ry="2" />
+<text  x="1058.41" y="383.5" ></text>
+</g>
+<g >
+<title>&lt;module&gt; (large_matmul_vs_tiny_kernels.py:55) (42,341,648 microjoules, 13.77%)</title><rect x="1027.5" y="757" width="162.5" height="15.0" fill="rgb(231,119,28)" rx="2" ry="2" />
+<text  x="1030.50" y="767.5" >&lt;module&gt; (large_matm..</text>
+</g>
+<g >
+<title>c10::impl::wrap_kernel_functor_unboxed_&lt;c10::impl::detail::WrapFunctionIntoFunctor_&lt;c10::CompileTimeFunctionPointer&lt;at::Tensor(at::Tensor const&amp;, at::Tensor const&amp;), &amp;at::(anonymous namespace)::(anonymous namespace)::wrapper_CompositeImplicitAutograd__matmul(at::Tensor const&amp;, at::Tensor const&amp;)&gt;, at::Tensor, c10::guts::typelist::typelist&lt;at::Tensor const&amp;, at::Tensor const&amp;&gt; &gt;, at::Tensor(at::Tensor const&amp;, at::Tensor const&amp;)&gt;::call (libtorch_cpu.so:0) (2,916,776 microjoules, 0.95%)</title><rect x="319.0" y="677" width="11.2" height="15.0" fill="rgb(251,215,51)" rx="2" ry="2" />
+<text  x="322.05" y="687.5" ></text>
+</g>
+<g >
+<title>0x7359302c0275 (libcuda.so.580.95.05:0) (1,373,208 microjoules, 0.45%)</title><rect x="1027.5" y="341" width="5.3" height="15.0" fill="rgb(232,127,30)" rx="2" ry="2" />
+<text  x="1030.50" y="351.5" ></text>
+</g>
+<g >
+<title>0x73593049d809 (libcuda.so.580.95.05:0) (2,295,187 microjoules, 0.75%)</title><rect x="1143.9" y="421" width="8.9" height="15.0" fill="rgb(235,141,33)" rx="2" ry="2" />
+<text  x="1146.95" y="431.5" ></text>
+</g>
+<g >
+<title>0x735930335a83 (libcuda.so.580.95.05:0) (308,339 microjoules, 0.10%)</title><rect x="1050.2" y="389" width="1.2" height="15.0" fill="rgb(206,8,2)" rx="2" ry="2" />
+<text  x="1053.25" y="399.5" ></text>
+</g>
+<g >
+<title>0x73593022bcd3 (libcuda.so.580.95.05:0) (1,383,970 microjoules, 0.45%)</title><rect x="1022.2" y="565" width="5.3" height="15.0" fill="rgb(231,123,29)" rx="2" ry="2" />
+<text  x="1025.19" y="575.5" ></text>
+</g>
+<g >
+<title>c10::cuda::device_synchronize (libc10_cuda.so:0) (181,365,233 microjoules, 58.99%)</title><rect x="331.5" y="693" width="696.0" height="15.0" fill="rgb(228,106,25)" rx="2" ry="2" />
+<text  x="334.47" y="703.5" >c10::cuda::device_synchronize (libc10_cuda.so:0)</text>
+</g>
+<g >
+<title>c10::impl::wrap_kernel_functor_unboxed_&lt;c10::impl::detail::WrapFunctionIntoFunctor_&lt;c10::CompileTimeFunctionPointer&lt;at::Tensor(c10::DispatchKeySet, at::Tensor const&amp;, at::Tensor const&amp;), &amp;torch::autograd::VariableType::(anonymous namespace)::mm(c10::DispatchKeySet, at::Tensor const&amp;, at::Tensor const&amp;)&gt;, at::Tensor, c10::guts::typelist::typelist&lt;c10::DispatchKeySet, at::Tensor const&amp;, at::Tensor const&amp;&gt; &gt;, at::Tensor(c10::DispatchKeySet, at::Tensor const&amp;, at::Tensor const&amp;)&gt;::call (libtorch_cpu.so:0) (2,916,776 microjoules, 0.95%)</title><rect x="319.0" y="613" width="11.2" height="15.0" fill="rgb(236,145,34)" rx="2" ry="2" />
+<text  x="322.05" y="623.5" ></text>
+</g>
+<g >
+<title>0x73592fb55d33 (libcupti.so.2025.1.1:0) (1,016,825 microjoules, 0.33%)</title><rect x="1125.7" y="309" width="3.9" height="15.0" fill="rgb(228,106,25)" rx="2" ry="2" />
+<text  x="1128.66" y="319.5" ></text>
+</g>
+<g >
+<title>0x735936306ca3 ([vdso]:0) (173,560 microjoules, 0.06%)</title><rect x="978.9" y="517" width="0.6" height="15.0" fill="rgb(249,203,48)" rx="2" ry="2" />
+<text  x="981.87" y="527.5" ></text>
+</g>
+<g >
+<title>at::cuda::getCurrentCUDABlasHandle (libtorch_cuda.so:0) (784,005 microjoules, 0.25%)</title><rect x="319.0" y="485" width="3.1" height="15.0" fill="rgb(220,70,16)" rx="2" ry="2" />
+<text  x="322.05" y="495.5" ></text>
+</g>
+<g >
+<title>ioctl (libc.so.6:0) (784,005 microjoules, 0.25%)</title><rect x="319.0" y="213" width="3.1" height="15.0" fill="rgb(215,47,11)" rx="2" ry="2" />
+<text  x="322.05" y="223.5" ></text>
+</g>
+<g >
+<title>0x73592c225f9c (libcudart.so.12:0) (458,984 microjoules, 0.15%)</title><rect x="1166.7" y="533" width="1.7" height="15.0" fill="rgb(244,180,43)" rx="2" ry="2" />
+<text  x="1169.67" y="543.5" ></text>
+</g>
+<g >
+<title>0x735930499ffa (libcuda.so.580.95.05:0) (152,258 microjoules, 0.05%)</title><rect x="281.9" y="69" width="0.6" height="15.0" fill="rgb(209,19,4)" rx="2" ry="2" />
+<text  x="284.93" y="79.5" ></text>
+</g>
+<g >
+<title>0x73592f90af8c (libcupti.so.2025.1.1:0) (699,406 microjoules, 0.23%)</title><rect x="1129.6" y="389" width="2.6" height="15.0" fill="rgb(235,141,33)" rx="2" ry="2" />
+<text  x="1132.56" y="399.5" ></text>
+</g>
+<g >
+<title>0x73593048e028 (libcuda.so.580.95.05:0) (152,258 microjoules, 0.05%)</title><rect x="281.9" y="53" width="0.6" height="15.0" fill="rgb(231,119,28)" rx="2" ry="2" />
+<text  x="284.93" y="63.5" ></text>
+</g>
+<g >
+<title>0x7358217b8cad (libcublasLt.so.12:0) (2,132,771 microjoules, 0.69%)</title><rect x="322.1" y="341" width="8.1" height="15.0" fill="rgb(234,134,32)" rx="2" ry="2" />
+<text  x="325.05" y="351.5" ></text>
+</g>
+<g >
+<title>isResurrectable (libtorch_python.so:0) (437,634 microjoules, 0.14%)</title><rect x="1037.9" y="693" width="1.7" height="15.0" fill="rgb(224,91,21)" rx="2" ry="2" />
+<text  x="1040.91" y="703.5" ></text>
+</g>
+<g >
+<title>0x735930f9ea68 (libcuda.so.580.95.05:0) (308,339 microjoules, 0.10%)</title><rect x="1050.2" y="373" width="1.2" height="15.0" fill="rgb(209,19,4)" rx="2" ry="2" />
+<text  x="1053.25" y="383.5" ></text>
+</g>
+<g >
+<title>0x7359302fe418 (libcuda.so.580.95.05:0) (406,125 microjoules, 0.13%)</title><rect x="1030.1" y="309" width="1.6" height="15.0" fill="rgb(227,103,24)" rx="2" ry="2" />
+<text  x="1033.13" y="319.5" ></text>
+</g>
+<g >
+<title>at::_ops::zeros::call (libtorch_cpu.so:0) (1,373,208 microjoules, 0.45%)</title><rect x="1027.5" y="709" width="5.3" height="15.0" fill="rgb(216,52,12)" rx="2" ry="2" />
+<text  x="1030.50" y="719.5" ></text>
+</g>
+<g >
+<title>0x735936306c36 ([vdso]:0) (430,400 microjoules, 0.14%)</title><rect x="1171.5" y="453" width="1.7" height="15.0" fill="rgb(226,101,24)" rx="2" ry="2" />
+<text  x="1174.53" y="463.5" ></text>
+</g>
+<g >
+<title>c10::StorageImpl::StorageImpl (libtorch_cpu.so:0) (852,279 microjoules, 0.28%)</title><rect x="1047.0" y="421" width="3.2" height="15.0" fill="rgb(210,25,6)" rx="2" ry="2" />
+<text  x="1049.98" y="431.5" ></text>
+</g>
+<g >
+<title>0x735930461b40 (libcuda.so.580.95.05:0) (4,532,128 microjoules, 1.47%)</title><rect x="668.5" y="485" width="17.4" height="15.0" fill="rgb(245,186,44)" rx="2" ry="2" />
+<text  x="671.51" y="495.5" ></text>
+</g>
+<g >
+<title>0x735930fba772 (libcuda.so.580.95.05:0) (1,895,397 microjoules, 0.62%)</title><rect x="1129.6" y="437" width="7.2" height="15.0" fill="rgb(223,86,20)" rx="2" ry="2" />
+<text  x="1132.56" y="447.5" ></text>
+</g>
+<g >
+<title>pthread_mutex_lock (libc.so.6:0) (1,679,268 microjoules, 0.55%)</title><rect x="1180.7" y="677" width="6.4" height="15.0" fill="rgb(231,120,28)" rx="2" ry="2" />
+<text  x="1183.66" y="687.5" ></text>
+</g>
+<g >
+<title>at::cuda::detail::(anonymous namespace)::_hasPrimaryContext (libtorch_cuda.so:0) (1,345,132 microjoules, 0.44%)</title><rect x="1050.2" y="421" width="5.2" height="15.0" fill="rgb(248,198,47)" rx="2" ry="2" />
+<text  x="1053.25" y="431.5" ></text>
+</g>
+<g >
+<title>0x73592f917c50 (libcupti.so.2025.1.1:0) (301,194 microjoules, 0.10%)</title><rect x="1106.6" y="421" width="1.2" height="15.0" fill="rgb(218,63,15)" rx="2" ry="2" />
+<text  x="1109.61" y="431.5" ></text>
+</g>
+<g >
+<title>0x73592c225170 (libcudart.so.12:0) (521,745 microjoules, 0.17%)</title><rect x="1085.8" y="453" width="2.0" height="15.0" fill="rgb(228,110,26)" rx="2" ry="2" />
+<text  x="1088.81" y="463.5" ></text>
+</g>
+<g >
+<title>cuDevicePrimaryCtxRetain (libcuda.so.580.95.05:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="245" width="178.4" height="15.0" fill="rgb(241,169,40)" rx="2" ry="2" />
+<text  x="143.62" y="255.5" >cuDevicePrimaryCtxRetai..</text>
+</g>
+<g >
+<title>0x73592f931c8e (libcupti.so.2025.1.1:0) (3,772,469 microjoules, 1.23%)</title><rect x="1115.1" y="357" width="14.5" height="15.0" fill="rgb(232,128,30)" rx="2" ry="2" />
+<text  x="1118.09" y="367.5" ></text>
+</g>
+<g >
+<title>0x735930461b74 (libcuda.so.580.95.05:0) (13,634,146 microjoules, 4.43%)</title><rect x="722.7" y="485" width="52.3" height="15.0" fill="rgb(250,208,49)" rx="2" ry="2" />
+<text  x="725.68" y="495.5" >0x735..</text>
+</g>
+<g >
+<title>c10::impl::wrap_kernel_functor_unboxed_&lt;c10::impl::detail::WrapFunctionIntoFunctor_&lt;c10::CompileTimeFunctionPointer&lt;at::Tensor(at::Tensor const&amp;, at::Tensor const&amp;), &amp;at::(anonymous namespace)::wrapper_CUDA_mm(at::Tensor const&amp;, at::Tensor const&amp;)&gt;, at::Tensor, c10::guts::typelist::typelist&lt;at::Tensor const&amp;, at::Tensor const&amp;&gt; &gt;, at::Tensor(at::Tensor const&amp;, at::Tensor const&amp;)&gt;::call (libtorch_cuda.so:0) (2,916,776 microjoules, 0.95%)</title><rect x="319.0" y="565" width="11.2" height="15.0" fill="rgb(205,2,0)" rx="2" ry="2" />
+<text  x="322.05" y="575.5" ></text>
+</g>
+<g >
+<title>0x735930f9b749 (libcuda.so.580.95.05:0) (406,125 microjoules, 0.13%)</title><rect x="1030.1" y="293" width="1.6" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="1033.13" y="303.5" ></text>
+</g>
+<g >
+<title>0x735852dbc8ca (libcublas.so.12:0) (2,132,771 microjoules, 0.69%)</title><rect x="322.1" y="437" width="8.1" height="15.0" fill="rgb(214,43,10)" rx="2" ry="2" />
+<text  x="325.05" y="447.5" ></text>
+</g>
+<g >
+<title>0x735930f9d554 (libcuda.so.580.95.05:0) (738,381 microjoules, 0.24%)</title><rect x="580.0" y="549" width="2.8" height="15.0" fill="rgb(232,125,29)" rx="2" ry="2" />
+<text  x="582.96" y="559.5" ></text>
+</g>
+<g >
+<title>0x735930f9d491 (libcuda.so.580.95.05:0) (1,024,318 microjoules, 0.33%)</title><rect x="576.0" y="549" width="4.0" height="15.0" fill="rgb(232,125,29)" rx="2" ry="2" />
+<text  x="579.03" y="559.5" ></text>
+</g>
+<g >
+<title>0x73593040a16f (libcuda.so.580.95.05:0) (228,412 microjoules, 0.07%)</title><rect x="548.9" y="533" width="0.8" height="15.0" fill="rgb(229,110,26)" rx="2" ry="2" />
+<text  x="551.87" y="543.5" ></text>
+</g>
+<g >
+<title>0x73593025de3b (libcuda.so.580.95.05:0) (79,075,685 microjoules, 25.72%)</title><rect x="589.9" y="517" width="303.5" height="15.0" fill="rgb(249,205,49)" rx="2" ry="2" />
+<text  x="592.92" y="527.5" >0x73593025de3b (libcuda.so.580.95.05:0)</text>
+</g>
+<g >
+<title>at::TensorIteratorBase::allocate_or_resize_outputs (libtorch_cpu.so:0) (3,648,060 microjoules, 1.19%)</title><rect x="1047.0" y="549" width="14.0" height="15.0" fill="rgb(225,96,23)" rx="2" ry="2" />
+<text  x="1049.98" y="559.5" ></text>
+</g>
+<g >
+<title>0x73593027e375 (libcuda.so.580.95.05:0) (521,745 microjoules, 0.17%)</title><rect x="1085.8" y="325" width="2.0" height="15.0" fill="rgb(218,60,14)" rx="2" ry="2" />
+<text  x="1088.81" y="335.5" ></text>
+</g>
+<g >
+<title>0x7359304900b2 (libcuda.so.580.95.05:0) (684,065 microjoules, 0.22%)</title><rect x="1027.5" y="165" width="2.6" height="15.0" fill="rgb(245,186,44)" rx="2" ry="2" />
+<text  x="1030.50" y="175.5" ></text>
+</g>
+<g >
+<title>torch::autograd::THPVariable_randn (libtorch_python.so:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="725" width="178.4" height="15.0" fill="rgb(239,159,38)" rx="2" ry="2" />
+<text  x="143.62" y="735.5" >torch::autograd::THPVar..</text>
+</g>
+<g >
+<title>malloc (libc.so.6:0) (342,315 microjoules, 0.11%)</title><rect x="1032.8" y="629" width="1.3" height="15.0" fill="rgb(214,43,10)" rx="2" ry="2" />
+<text  x="1035.77" y="639.5" ></text>
+</g>
+<g >
+<title>torch::PythonArgs::tensor_slow (libtorch_python.so:0) (319,185 microjoules, 0.10%)</title><rect x="1188.8" y="677" width="1.2" height="15.0" fill="rgb(227,103,24)" rx="2" ry="2" />
+<text  x="1191.78" y="687.5" ></text>
+</g>
+<g >
+<title>c10::impl::wrap_kernel_functor_unboxed_&lt;c10::impl::detail::WrapFunctionIntoFunctor_&lt;c10::CompileTimeFunctionPointer&lt;at::Tensor&amp; (at::Tensor&amp;, c10::Scalar const&amp;), &amp;at::(anonymous namespace)::(anonymous namespace)::wrapper_CUDA_Scalar_fill_(at::Tensor&amp;, c10::Scalar const&amp;)&gt;, at::Tensor&amp;, c10::guts::typelist::typelist&lt;at::Tensor&amp;, c10::Scalar const&amp;&gt; &gt;, at::Tensor&amp; (at::Tensor&amp;, c10::Scalar const&amp;)&gt;::call (libtorch_cuda.so:0) (1,373,208 microjoules, 0.45%)</title><rect x="1027.5" y="565" width="5.3" height="15.0" fill="rgb(226,97,23)" rx="2" ry="2" />
+<text  x="1030.50" y="575.5" ></text>
+</g>
+<g >
+<title>0x73592c211bd8 (libcudart.so.12:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="341" width="178.4" height="15.0" fill="rgb(252,217,52)" rx="2" ry="2" />
+<text  x="143.62" y="351.5" >0x73592c211bd8 (libcuda..</text>
+</g>
+<g >
+<title>torch::autograd::THPVariable_matmul (libtorch_python.so:0) (2,916,776 microjoules, 0.95%)</title><rect x="319.0" y="709" width="11.2" height="15.0" fill="rgb(232,125,29)" rx="2" ry="2" />
+<text  x="322.05" y="719.5" ></text>
+</g>
+<g >
+<title>cuLibraryLoadData (libcuda.so.580.95.05:0) (581,313 microjoules, 0.19%)</title><rect x="326.3" y="197" width="2.3" height="15.0" fill="rgb(244,183,43)" rx="2" ry="2" />
+<text  x="329.32" y="207.5" ></text>
+</g>
+<g >
+<title>0x7359304a1a27 (libcuda.so.580.95.05:0) (283,018 microjoules, 0.09%)</title><rect x="1031.7" y="165" width="1.1" height="15.0" fill="rgb(242,170,40)" rx="2" ry="2" />
+<text  x="1034.69" y="175.5" ></text>
+</g>
+<g >
+<title>0x73593040a28c (libcuda.so.580.95.05:0) (365,330 microjoules, 0.12%)</title><rect x="563.1" y="533" width="1.4" height="15.0" fill="rgb(229,110,26)" rx="2" ry="2" />
+<text  x="566.10" y="543.5" ></text>
+</g>
+<g >
+<title>0x735930f9d137 (libcuda.so.580.95.05:0) (81,558,936 microjoules, 26.53%)</title><rect x="584.3" y="533" width="313.0" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="587.33" y="543.5" >0x735930f9d137 (libcuda.so.580.95.05:0)</text>
+</g>
+<g >
+<title>0x73593027e375 (libcuda.so.580.95.05:0) (1,733,342 microjoules, 0.56%)</title><rect x="1087.8" y="341" width="6.7" height="15.0" fill="rgb(218,60,14)" rx="2" ry="2" />
+<text  x="1090.81" y="351.5" ></text>
+</g>
+<g >
+<title>0x735930332f99 (libcuda.so.580.95.05:0) (378,047 microjoules, 0.12%)</title><rect x="1072.7" y="453" width="1.4" height="15.0" fill="rgb(248,201,48)" rx="2" ry="2" />
+<text  x="1075.66" y="463.5" ></text>
+</g>
+<g >
+<title>_ZN3c10L14tls_debug_infoMUlvE_4_FUNEv (libc10.so:0) (852,279 microjoules, 0.28%)</title><rect x="1047.0" y="309" width="3.2" height="15.0" fill="rgb(215,47,11)" rx="2" ry="2" />
+<text  x="1049.98" y="319.5" ></text>
+</g>
+<g >
+<title>std::_Optional_payload_base&lt;c10::impl::InlineDeviceGuard&lt;c10::cuda::impl::CUDAGuardImpl&gt; &gt;::_M_reset (libtorch_cuda.so:0) (2,048,479 microjoules, 0.67%)</title><rect x="1169.8" y="597" width="7.9" height="15.0" fill="rgb(245,187,44)" rx="2" ry="2" />
+<text  x="1172.80" y="607.5" ></text>
+</g>
+<g >
+<title>0x73593031bc31 (libcuda.so.580.95.05:0) (7,130,720 microjoules, 2.32%)</title><rect x="986.2" y="549" width="27.3" height="15.0" fill="rgb(211,29,7)" rx="2" ry="2" />
+<text  x="989.18" y="559.5" >0..</text>
+</g>
+<g >
+<title>c10::cuda::SetDevice (libc10_cuda.so:0) (1,598,950 microjoules, 0.52%)</title><rect x="1171.5" y="581" width="6.2" height="15.0" fill="rgb(239,160,38)" rx="2" ry="2" />
+<text  x="1174.53" y="591.5" ></text>
+</g>
+<g >
+<title>0x73593046392a (libcuda.so.580.95.05:0) (283,018 microjoules, 0.09%)</title><rect x="1031.7" y="133" width="1.1" height="15.0" fill="rgb(243,179,42)" rx="2" ry="2" />
+<text  x="1034.69" y="143.5" ></text>
+</g>
+<g >
+<title>0x73582214de78 (libcublasLt.so.12:0) (215,663 microjoules, 0.07%)</title><rect x="329.4" y="149" width="0.8" height="15.0" fill="rgb(222,78,18)" rx="2" ry="2" />
+<text  x="332.41" y="159.5" ></text>
+</g>
+<g >
+<title>0x73593021f172 (libcuda.so.580.95.05:0) (1,618,270 microjoules, 0.53%)</title><rect x="655.8" y="501" width="6.2" height="15.0" fill="rgb(232,127,30)" rx="2" ry="2" />
+<text  x="658.80" y="511.5" ></text>
+</g>
+<g >
+<title>at::native::randn (libtorch_cpu.so:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="645" width="178.4" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="143.62" y="655.5" >at::native::randn (libt..</text>
+</g>
+<g >
+<title>at::native::zero_ (libtorch_cpu.so:0) (1,373,208 microjoules, 0.45%)</title><rect x="1027.5" y="597" width="5.3" height="15.0" fill="rgb(224,87,21)" rx="2" ry="2" />
+<text  x="1030.50" y="607.5" ></text>
+</g>
+<g >
+<title>at::(anonymous namespace)::wrapper_CUDA_add_Tensor (libtorch_cuda.so:0) (34,052,984 microjoules, 11.08%)</title><rect x="1047.0" y="613" width="130.7" height="15.0" fill="rgb(216,54,12)" rx="2" ry="2" />
+<text  x="1049.98" y="623.5" >at::(anonymous n..</text>
+</g>
+<g >
+<title>at::TensorIteratorBase::build (libtorch_cpu.so:0) (3,648,060 microjoules, 1.19%)</title><rect x="1047.0" y="565" width="14.0" height="15.0" fill="rgb(210,27,6)" rx="2" ry="2" />
+<text  x="1049.98" y="575.5" ></text>
+</g>
+<g >
+<title>0x73592c23ea69 (libcudart.so.12:0) (1,373,208 microjoules, 0.45%)</title><rect x="1027.5" y="453" width="5.3" height="15.0" fill="rgb(250,210,50)" rx="2" ry="2" />
+<text  x="1030.50" y="463.5" ></text>
+</g>
+<g >
+<title>0x735930262399 (libcuda.so.580.95.05:0) (684,065 microjoules, 0.22%)</title><rect x="1027.5" y="277" width="2.6" height="15.0" fill="rgb(215,47,11)" rx="2" ry="2" />
+<text  x="1030.50" y="287.5" ></text>
+</g>
+<g >
+<title>0x735930f9d409 (libcuda.so.580.95.05:0) (668,164 microjoules, 0.22%)</title><rect x="572.8" y="549" width="2.6" height="15.0" fill="rgb(238,154,37)" rx="2" ry="2" />
+<text  x="575.85" y="559.5" ></text>
+</g>
+<g >
+<title>cudaGetDevice (libcudart.so.12:0) (685,182 microjoules, 0.22%)</title><rect x="1058.3" y="485" width="2.7" height="15.0" fill="rgb(239,159,38)" rx="2" ry="2" />
+<text  x="1061.35" y="495.5" ></text>
+</g>
+<g >
+<title>0x73593040a25b (libcuda.so.580.95.05:0) (318,239 microjoules, 0.10%)</title><rect x="561.9" y="533" width="1.2" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="564.88" y="543.5" ></text>
+</g>
+<g >
+<title>0x73592fb55d7d (libcupti.so.2025.1.1:0) (2,388,074 microjoules, 0.78%)</title><rect x="1116.5" y="309" width="9.2" height="15.0" fill="rgb(235,141,33)" rx="2" ry="2" />
+<text  x="1119.50" y="319.5" ></text>
+</g>
+<g >
+<title>0x7359301d5a28 (libcuda.so.580.95.05:0) (14,505,199 microjoules, 4.72%)</title><rect x="1105.4" y="469" width="55.7" height="15.0" fill="rgb(209,21,5)" rx="2" ry="2" />
+<text  x="1108.40" y="479.5" >0x735..</text>
+</g>
+<g >
+<title>at::native::gpu_kernel_impl_nocast&lt;at::native::CUDAFunctorOnSelf_add&lt;float&gt; &gt; (libtorch_cuda.so:0) (27,614,398 microjoules, 8.98%)</title><rect x="1062.4" y="565" width="106.0" height="15.0" fill="rgb(229,112,26)" rx="2" ry="2" />
+<text  x="1065.45" y="575.5" >at::native::..</text>
+</g>
+<g >
+<title>pthread_once (libc.so.6:0) (166,803 microjoules, 0.05%)</title><rect x="900.6" y="533" width="0.6" height="15.0" fill="rgb(207,12,3)" rx="2" ry="2" />
+<text  x="903.59" y="543.5" ></text>
+</g>
+<g >
+<title>c10::cuda::ExchangeDevice (libc10_cuda.so:0) (685,182 microjoules, 0.22%)</title><rect x="1058.3" y="501" width="2.7" height="15.0" fill="rgb(240,164,39)" rx="2" ry="2" />
+<text  x="1061.35" y="511.5" ></text>
+</g>
+<g >
+<title>0x7359302fe365 (libcuda.so.580.95.05:0) (1,733,342 microjoules, 0.56%)</title><rect x="1087.8" y="373" width="6.7" height="15.0" fill="rgb(220,73,17)" rx="2" ry="2" />
+<text  x="1090.81" y="383.5" ></text>
+</g>
+<g >
+<title>0x73582216e3fe (libcublasLt.so.12:0) (2,132,771 microjoules, 0.69%)</title><rect x="322.1" y="309" width="8.1" height="15.0" fill="rgb(231,121,29)" rx="2" ry="2" />
+<text  x="325.05" y="319.5" ></text>
+</g>
+<g >
+<title>0x73592c23bb46 (libcudart.so.12:0) (1,373,208 microjoules, 0.45%)</title><rect x="1027.5" y="437" width="5.3" height="15.0" fill="rgb(245,188,44)" rx="2" ry="2" />
+<text  x="1030.50" y="447.5" ></text>
+</g>
+<g >
+<title>c10::cuda::(anonymous namespace)::initGlobalStreamState (libc10_cuda.so:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="373" width="178.4" height="15.0" fill="rgb(211,29,7)" rx="2" ry="2" />
+<text  x="143.62" y="383.5" >c10::cuda::(anonymous n..</text>
+</g>
+<g >
+<title>0x735930fba891 (libcuda.so.580.95.05:0) (1,852,898 microjoules, 0.60%)</title><rect x="1136.8" y="437" width="7.1" height="15.0" fill="rgb(210,26,6)" rx="2" ry="2" />
+<text  x="1139.84" y="447.5" ></text>
+</g>
+<g >
+<title>0x7359302be765 (libcuda.so.580.95.05:0) (430,339 microjoules, 0.14%)</title><rect x="1113.4" y="421" width="1.7" height="15.0" fill="rgb(220,73,17)" rx="2" ry="2" />
+<text  x="1116.43" y="431.5" ></text>
+</g>
+<g >
+<title>0x73593040a358 (libcuda.so.580.95.05:0) (346,556 microjoules, 0.11%)</title><rect x="565.3" y="533" width="1.3" height="15.0" fill="rgb(219,67,16)" rx="2" ry="2" />
+<text  x="568.30" y="543.5" ></text>
+</g>
+<g >
+<title>cuptiGetTimestamp (libcupti.so.2025.1.1:0) (352,368 microjoules, 0.11%)</title><rect x="1081.3" y="469" width="1.4" height="15.0" fill="rgb(232,125,30)" rx="2" ry="2" />
+<text  x="1084.34" y="479.5" ></text>
+</g>
+<g >
+<title>0x735930fb98b2 (libcuda.so.580.95.05:0) (3,772,469 microjoules, 1.23%)</title><rect x="1115.1" y="437" width="14.5" height="15.0" fill="rgb(247,197,47)" rx="2" ry="2" />
+<text  x="1118.09" y="447.5" ></text>
+</g>
+<g >
+<title>0x73592f917c50 (libcupti.so.2025.1.1:0) (276,496 microjoules, 0.09%)</title><rect x="1058.3" y="421" width="1.1" height="15.0" fill="rgb(218,63,15)" rx="2" ry="2" />
+<text  x="1061.35" y="431.5" ></text>
+</g>
+<g >
+<title>0x73593048e028 (libcuda.so.580.95.05:0) (784,005 microjoules, 0.25%)</title><rect x="319.0" y="229" width="3.1" height="15.0" fill="rgb(231,119,28)" rx="2" ry="2" />
+<text  x="322.05" y="239.5" ></text>
+</g>
+<g >
+<title>0x73593022a463 (libcuda.so.580.95.05:0) (9,518,718 microjoules, 3.10%)</title><rect x="282.5" y="149" width="36.5" height="15.0" fill="rgb(239,157,37)" rx="2" ry="2" />
+<text  x="285.51" y="159.5" >0x7..</text>
+</g>
+<g >
+<title>cudaDeviceSynchronize (libcudart.so.12:0) (181,365,233 microjoules, 58.99%)</title><rect x="331.5" y="677" width="696.0" height="15.0" fill="rgb(227,103,24)" rx="2" ry="2" />
+<text  x="334.47" y="687.5" >cudaDeviceSynchronize (libcudart.so.12:0)</text>
+</g>
+<g >
+<title>ioctl (libc.so.6:0) (684,065 microjoules, 0.22%)</title><rect x="1027.5" y="85" width="2.6" height="15.0" fill="rgb(215,47,11)" rx="2" ry="2" />
+<text  x="1030.50" y="95.5" ></text>
+</g>
+<g >
+<title>0x73592f9490fa (libcupti.so.2025.1.1:0) (1,078,976 microjoules, 0.35%)</title><rect x="1074.1" y="405" width="4.2" height="15.0" fill="rgb(232,128,30)" rx="2" ry="2" />
+<text  x="1077.11" y="415.5" ></text>
+</g>
+<g >
+<title>0x73582215bc2c (libcublasLt.so.12:0) (439,537 microjoules, 0.14%)</title><rect x="328.6" y="181" width="1.6" height="15.0" fill="rgb(246,188,45)" rx="2" ry="2" />
+<text  x="331.55" y="191.5" ></text>
+</g>
+<g >
+<title>0x73592c24219b (libcudart.so.12:0) (813,266 microjoules, 0.26%)</title><rect x="1082.7" y="517" width="3.1" height="15.0" fill="rgb(249,204,48)" rx="2" ry="2" />
+<text  x="1085.69" y="527.5" ></text>
+</g>
+<g >
+<title>0x73582213e316 (libcublasLt.so.12:0) (581,313 microjoules, 0.19%)</title><rect x="326.3" y="213" width="2.3" height="15.0" fill="rgb(246,192,45)" rx="2" ry="2" />
+<text  x="329.32" y="223.5" ></text>
+</g>
+<g >
+<title>0x735930166950 (libcuda.so.580.95.05:0) (379,760 microjoules, 0.12%)</title><rect x="907.7" y="533" width="1.4" height="15.0" fill="rgb(241,166,39)" rx="2" ry="2" />
+<text  x="910.68" y="543.5" ></text>
+</g>
+<g >
+<title>0x73593041f39a (libcuda.so.580.95.05:0) (283,018 microjoules, 0.09%)</title><rect x="1031.7" y="181" width="1.1" height="15.0" fill="rgb(240,162,38)" rx="2" ry="2" />
+<text  x="1034.69" y="191.5" ></text>
+</g>
+<g >
+<title>0x73593042133b (libcuda.so.580.95.05:0) (684,065 microjoules, 0.22%)</title><rect x="1027.5" y="213" width="2.6" height="15.0" fill="rgb(208,16,3)" rx="2" ry="2" />
+<text  x="1030.50" y="223.5" ></text>
+</g>
+<g >
+<title>at::native::structured_ufunc_add_CUDA::impl (libtorch_cuda.so:0) (358,307 microjoules, 0.12%)</title><rect x="1168.4" y="597" width="1.4" height="15.0" fill="rgb(244,181,43)" rx="2" ry="2" />
+<text  x="1171.43" y="607.5" ></text>
+</g>
+<g >
+<title>0x73593040a186 (libcuda.so.580.95.05:0) (1,276,389 microjoules, 0.42%)</title><rect x="549.7" y="533" width="4.9" height="15.0" fill="rgb(226,97,23)" rx="2" ry="2" />
+<text  x="552.74" y="543.5" ></text>
+</g>
+<g >
+<title>0x7359304ae696 (libcuda.so.580.95.05:0) (1,078,976 microjoules, 0.35%)</title><rect x="1074.1" y="485" width="4.2" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1077.11" y="495.5" ></text>
+</g>
+<g >
+<title>0x73593031f090 (libcuda.so.580.95.05:0) (31,934,011 microjoules, 10.39%)</title><rect x="140.6" y="117" width="122.6" height="15.0" fill="rgb(232,127,30)" rx="2" ry="2" />
+<text  x="143.62" y="127.5" >0x73593031f090 ..</text>
+</g>
+<g >
+<title>0x735930461bc1 (libcuda.so.580.95.05:0) (1,437,842 microjoules, 0.47%)</title><rect x="825.7" y="485" width="5.5" height="15.0" fill="rgb(235,140,33)" rx="2" ry="2" />
+<text  x="828.70" y="495.5" ></text>
+</g>
+<g >
+<title>0x735930fbaa6f (libcuda.so.580.95.05:0) (2,295,187 microjoules, 0.75%)</title><rect x="1143.9" y="437" width="8.9" height="15.0" fill="rgb(223,82,19)" rx="2" ry="2" />
+<text  x="1146.95" y="447.5" ></text>
+</g>
+<g >
+<title>0x73592f917c50 (libcupti.so.2025.1.1:0) (449,529 microjoules, 0.15%)</title><rect x="1169.8" y="517" width="1.7" height="15.0" fill="rgb(218,63,15)" rx="2" ry="2" />
+<text  x="1172.80" y="527.5" ></text>
+</g>
+<g >
+<title>0x73592f903e99 (libcupti.so.2025.1.1:0) (803,908 microjoules, 0.26%)</title><rect x="1078.3" y="501" width="3.0" height="15.0" fill="rgb(254,226,54)" rx="2" ry="2" />
+<text  x="1081.25" y="511.5" ></text>
+</g>
+<g >
+<title>at::_ops::randn::call (libtorch_cpu.so:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="709" width="178.4" height="15.0" fill="rgb(223,83,20)" rx="2" ry="2" />
+<text  x="143.62" y="719.5" >at::_ops::randn::call (..</text>
+</g>
+<g >
+<title>std::vector&lt;torch::FunctionParameter, std::allocator&lt;torch::FunctionParameter&gt; &gt;::_M_realloc_insert&lt;std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt;&amp;, bool&amp;&gt; (libtorch_python.so:0) (342,315 microjoules, 0.11%)</title><rect x="1032.8" y="661" width="1.3" height="15.0" fill="rgb(236,143,34)" rx="2" ry="2" />
+<text  x="1035.77" y="671.5" ></text>
+</g>
+<g >
+<title>at::native::fill_kernel_cuda(at::TensorIterator&amp;, c10::Scalar const&amp;)::{lambda()#1}::operator() const (libtorch_cuda.so:0) (1,373,208 microjoules, 0.45%)</title><rect x="1027.5" y="517" width="5.3" height="15.0" fill="rgb(248,201,48)" rx="2" ry="2" />
+<text  x="1030.50" y="527.5" ></text>
+</g>
+<g >
+<title>cpu (307,471,574 microjoules, 100.00%)</title><rect x="10.0" y="789" width="1180.0" height="15.0" fill="rgb(244,182,43)" rx="2" ry="2" />
+<text  x="13.00" y="799.5" >cpu</text>
+</g>
+<g >
+<title>0x735930f9d260 (libcuda.so.580.95.05:0) (6,535,259 microjoules, 2.13%)</title><rect x="543.6" y="549" width="25.1" height="15.0" fill="rgb(220,73,17)" rx="2" ry="2" />
+<text  x="546.63" y="559.5" >0..</text>
+</g>
+<g >
+<title>0x735935e2a1ca (libc.so.6:0) (307,471,574 microjoules, 100.00%)</title><rect x="10.0" y="773" width="1180.0" height="15.0" fill="rgb(210,23,5)" rx="2" ry="2" />
+<text  x="13.00" y="783.5" >0x735935e2a1ca (libc.so.6:0)</text>
+</g>
+<g >
+<title>0x7359302bff08 (libcuda.so.580.95.05:0) (1,373,208 microjoules, 0.45%)</title><rect x="1027.5" y="325" width="5.3" height="15.0" fill="rgb(230,116,27)" rx="2" ry="2" />
+<text  x="1030.50" y="335.5" ></text>
+</g>
+<g >
+<title>c10::cuda::CUDACachingAllocator::Native::NativeCachingAllocator::malloc (libc10_cuda.so:0) (852,279 microjoules, 0.28%)</title><rect x="1047.0" y="389" width="3.2" height="15.0" fill="rgb(232,125,30)" rx="2" ry="2" />
+<text  x="1049.98" y="399.5" ></text>
+</g>
+<g >
+<title>0x7359303c0064 (libcuda.so.580.95.05:0) (1,532,436 microjoules, 0.50%)</title><rect x="1143.9" y="357" width="5.9" height="15.0" fill="rgb(252,216,51)" rx="2" ry="2" />
+<text  x="1146.95" y="367.5" ></text>
+</g>
+<g >
+<title>at::cuda::blas::gemm_internal_cublas&lt;float, float&gt; (libtorch_cuda.so:0) (2,916,776 microjoules, 0.95%)</title><rect x="319.0" y="501" width="11.2" height="15.0" fill="rgb(205,2,0)" rx="2" ry="2" />
+<text  x="322.05" y="511.5" ></text>
+</g>
+<g >
+<title>0x735930f9d252 (libcuda.so.580.95.05:0) (476,857 microjoules, 0.16%)</title><rect x="540.7" y="549" width="1.8" height="15.0" fill="rgb(214,43,10)" rx="2" ry="2" />
+<text  x="543.66" y="559.5" ></text>
+</g>
+<g >
+<title>0x73592c23fec4 (libcudart.so.12:0) (813,266 microjoules, 0.26%)</title><rect x="1082.7" y="501" width="3.1" height="15.0" fill="rgb(209,22,5)" rx="2" ry="2" />
+<text  x="1085.69" y="511.5" ></text>
+</g>
+<g >
+<title>at::native::zeros_symint (libtorch_cpu.so:0) (1,373,208 microjoules, 0.45%)</title><rect x="1027.5" y="645" width="5.3" height="15.0" fill="rgb(214,42,10)" rx="2" ry="2" />
+<text  x="1030.50" y="655.5" ></text>
+</g>
+<g >
+<title>torch::PythonArgParser::raw_parse (libtorch_python.so:0) (436,041 microjoules, 0.14%)</title><rect x="1187.1" y="693" width="1.7" height="15.0" fill="rgb(230,115,27)" rx="2" ry="2" />
+<text  x="1190.10" y="703.5" ></text>
+</g>
+<g >
+<title>0x73593031bc1a (libcuda.so.580.95.05:0) (1,731,832 microjoules, 0.56%)</title><rect x="979.5" y="549" width="6.7" height="15.0" fill="rgb(214,42,10)" rx="2" ry="2" />
+<text  x="982.54" y="559.5" ></text>
+</g>
+<g >
+<title>pthread_mutex_lock (libc.so.6:0) (367,570 microjoules, 0.12%)</title><rect x="1115.1" y="325" width="1.4" height="15.0" fill="rgb(231,120,28)" rx="2" ry="2" />
+<text  x="1118.09" y="335.5" ></text>
+</g>
+<g >
+<title>at::detail::empty_cpu (libtorch_cpu.so:0) (319,185 microjoules, 0.10%)</title><rect x="1188.8" y="629" width="1.2" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="1191.78" y="639.5" ></text>
+</g>
+<g >
+<title>0x735930461be1 (libcuda.so.580.95.05:0) (1,331,430 microjoules, 0.43%)</title><rect x="839.1" y="485" width="5.1" height="15.0" fill="rgb(222,81,19)" rx="2" ry="2" />
+<text  x="842.14" y="495.5" ></text>
+</g>
+<g >
+<title>torch::PythonArgs::tensor (libtorch_python.so:0) (319,185 microjoules, 0.10%)</title><rect x="1188.8" y="693" width="1.2" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="1191.78" y="703.5" ></text>
+</g>
+<g >
+<title>at::native::fill_out (libtorch_cpu.so:0) (1,373,208 microjoules, 0.45%)</title><rect x="1027.5" y="549" width="5.3" height="15.0" fill="rgb(213,38,9)" rx="2" ry="2" />
+<text  x="1030.50" y="559.5" ></text>
+</g>
+<g >
+<title>0x73593033e2dc (libcuda.so.580.95.05:0) (569,525 microjoules, 0.19%)</title><rect x="322.1" y="181" width="2.1" height="15.0" fill="rgb(206,5,1)" rx="2" ry="2" />
+<text  x="325.05" y="191.5" ></text>
+</g>
+<g >
+<title>c10::impl::InlineDeviceGuard&lt;c10::impl::VirtualGuardImpl&gt;::InlineDeviceGuard (libtorch_cuda.so:0) (377,567 microjoules, 0.12%)</title><rect x="1056.9" y="453" width="1.4" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="1059.90" y="463.5" ></text>
+</g>
+<g >
+<title>ioctl (libc.so.6:0) (152,258 microjoules, 0.05%)</title><rect x="281.9" y="37" width="0.6" height="15.0" fill="rgb(215,47,11)" rx="2" ry="2" />
+<text  x="284.93" y="47.5" ></text>
+</g>
+<g >
+<title>0x73592f90d695 (libcupti.so.2025.1.1:0) (1,598,950 microjoules, 0.52%)</title><rect x="1171.5" y="517" width="6.2" height="15.0" fill="rgb(217,55,13)" rx="2" ry="2" />
+<text  x="1174.53" y="527.5" ></text>
+</g>
+<g >
+<title>c10::impl::wrap_kernel_functor_unboxed_&lt;c10::impl::detail::WrapFunctionIntoFunctor_&lt;c10::CompileTimeFunctionPointer&lt;at::Tensor(c10::ArrayRef&lt;c10::SymInt&gt;, std::optional&lt;c10::ScalarType&gt;, std::optional&lt;c10::Layout&gt;, std::optional&lt;c10::Device&gt;, std::optional&lt;bool&gt;), &amp;at::(anonymous namespace)::zeros(c10::ArrayRef&lt;c10::SymInt&gt;, std::optional&lt;c10::ScalarType&gt;, std::optional&lt;c10::Layout&gt;, std::optional&lt;c10::Device&gt;, std::optional&lt;bool&gt;)&gt;, at::Tensor, c10::guts::typelist::typelist&lt;c10::ArrayRef&lt;c10::SymInt&gt;, std::optional&lt;c10::ScalarType&gt;, std::optional&lt;c10::Layout&gt;, std::optional&lt;c10::Device&gt;, std::optional&lt;bool&gt; &gt; &gt;, at::Tensor(c10::ArrayRef&lt;c10::SymInt&gt;, std::optional&lt;c10::ScalarType&gt;, std::optional&lt;c10::Layout&gt;, std::optional&lt;c10::Device&gt;, std::optional&lt;bool&gt;)&gt;::call (libtorch_cpu.so:0) (1,373,208 microjoules, 0.45%)</title><rect x="1027.5" y="693" width="5.3" height="15.0" fill="rgb(253,223,53)" rx="2" ry="2" />
+<text  x="1030.50" y="703.5" ></text>
+</g>
+<g >
+<title>cuCtxGetDevice (libcuda.so.580.95.05:0) (378,047 microjoules, 0.12%)</title><rect x="1072.7" y="469" width="1.4" height="15.0" fill="rgb(208,17,4)" rx="2" ry="2" />
+<text  x="1075.66" y="479.5" ></text>
+</g>
+<g >
+<title>at::_ops::mm::redispatch (libtorch_cpu.so:0) (2,916,776 microjoules, 0.95%)</title><rect x="319.0" y="581" width="11.2" height="15.0" fill="rgb(239,159,38)" rx="2" ry="2" />
+<text  x="322.05" y="591.5" ></text>
+</g>
+<g >
+<title>c10::cuda::MaybeSetDevice (libc10_cuda.so:0) (1,345,132 microjoules, 0.44%)</title><rect x="1050.2" y="437" width="5.2" height="15.0" fill="rgb(248,201,48)" rx="2" ry="2" />
+<text  x="1053.25" y="447.5" ></text>
+</g>
+<g >
+<title>0x73582213e084 (libcublasLt.so.12:0) (542,396 microjoules, 0.18%)</title><rect x="324.2" y="197" width="2.1" height="15.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="327.24" y="207.5" ></text>
+</g>
+<g >
+<title>0x7359304252bb (libcuda.so.580.95.05:0) (684,065 microjoules, 0.22%)</title><rect x="1027.5" y="245" width="2.6" height="15.0" fill="rgb(235,140,33)" rx="2" ry="2" />
+<text  x="1030.50" y="255.5" ></text>
+</g>
+<g >
+<title>0x7359303208bc (libcuda.so.580.95.05:0) (684,065 microjoules, 0.22%)</title><rect x="1027.5" y="133" width="2.6" height="15.0" fill="rgb(229,110,26)" rx="2" ry="2" />
+<text  x="1030.50" y="143.5" ></text>
+</g>
+<g >
+<title>0x73593021f18e (libcuda.so.580.95.05:0) (145,839 microjoules, 0.05%)</title><rect x="890.7" y="501" width="0.5" height="15.0" fill="rgb(246,192,45)" rx="2" ry="2" />
+<text  x="893.67" y="511.5" ></text>
+</g>
+<g >
+<title>0x7359302db78c (libcuda.so.580.95.05:0) (396,635 microjoules, 0.13%)</title><rect x="322.1" y="133" width="1.5" height="15.0" fill="rgb(217,56,13)" rx="2" ry="2" />
+<text  x="325.05" y="143.5" ></text>
+</g>
+<g >
+<title>0x735853146e08 (libcublas.so.12:0) (784,005 microjoules, 0.25%)</title><rect x="319.0" y="373" width="3.1" height="15.0" fill="rgb(228,110,26)" rx="2" ry="2" />
+<text  x="322.05" y="383.5" ></text>
+</g>
+<g >
+<title>0x735930461c60 (libcuda.so.580.95.05:0) (4,279,123 microjoules, 1.39%)</title><rect x="844.2" y="485" width="16.5" height="15.0" fill="rgb(226,97,23)" rx="2" ry="2" />
+<text  x="847.25" y="495.5" ></text>
+</g>
+<g >
+<title>0x735822159a3c (libcublasLt.so.12:0) (439,537 microjoules, 0.14%)</title><rect x="328.6" y="165" width="1.6" height="15.0" fill="rgb(217,56,13)" rx="2" ry="2" />
+<text  x="331.55" y="175.5" ></text>
+</g>
+<g >
+<title>0x735936306c36 ([vdso]:0) (406,125 microjoules, 0.13%)</title><rect x="1030.1" y="229" width="1.6" height="15.0" fill="rgb(226,101,24)" rx="2" ry="2" />
+<text  x="1033.13" y="239.5" ></text>
+</g>
+<g >
+<title>at::empty (libtorch_cpu.so:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="613" width="178.4" height="15.0" fill="rgb(249,205,49)" rx="2" ry="2" />
+<text  x="143.62" y="623.5" >at::empty (libtorch_cpu..</text>
+</g>
+<g >
+<title>cuLibraryGetModule (libcuda.so.580.95.05:0) (1,733,342 microjoules, 0.56%)</title><rect x="1087.8" y="453" width="6.7" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
+<text  x="1090.81" y="463.5" ></text>
+</g>
+<g >
+<title>0x73592f917c50 (libcupti.so.2025.1.1:0) (1,598,950 microjoules, 0.52%)</title><rect x="1171.5" y="533" width="6.2" height="15.0" fill="rgb(218,63,15)" rx="2" ry="2" />
+<text  x="1174.53" y="543.5" ></text>
+</g>
+<g >
+<title>0x7359302e2f53 (libcuda.so.580.95.05:0) (684,065 microjoules, 0.22%)</title><rect x="1027.5" y="293" width="2.6" height="15.0" fill="rgb(246,192,45)" rx="2" ry="2" />
+<text  x="1030.50" y="303.5" ></text>
+</g>
+<g >
+<title>cuLaunchKernel (libcuda.so.580.95.05:0) (18,813,601 microjoules, 6.12%)</title><rect x="1094.5" y="517" width="72.2" height="15.0" fill="rgb(221,75,18)" rx="2" ry="2" />
+<text  x="1097.46" y="527.5" >cuLaunch..</text>
+</g>
+<g >
+<title>0x73593021f12c (libcuda.so.580.95.05:0) (1,297,116 microjoules, 0.42%)</title><rect x="590.7" y="501" width="5.0" height="15.0" fill="rgb(248,199,47)" rx="2" ry="2" />
+<text  x="593.73" y="511.5" ></text>
+</g>
+<g >
+<title>clock_gettime (libc.so.6:0) (352,368 microjoules, 0.11%)</title><rect x="1081.3" y="453" width="1.4" height="15.0" fill="rgb(247,193,46)" rx="2" ry="2" />
+<text  x="1084.34" y="463.5" ></text>
+</g>
+<g >
+<title>0x735935ea1ed3 (libc.so.6:0) (784,005 microjoules, 0.25%)</title><rect x="319.0" y="389" width="3.1" height="15.0" fill="rgb(221,74,17)" rx="2" ry="2" />
+<text  x="322.05" y="399.5" ></text>
+</g>
+<g >
+<title>0x73585313a331 (libcublas.so.12:0) (784,005 microjoules, 0.25%)</title><rect x="319.0" y="357" width="3.1" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="322.05" y="367.5" ></text>
+</g>
+<g >
+<title>0x73593023d360 (libcuda.so.580.95.05:0) (848,647 microjoules, 0.28%)</title><rect x="897.3" y="549" width="3.3" height="15.0" fill="rgb(239,157,37)" rx="2" ry="2" />
+<text  x="900.33" y="559.5" ></text>
+</g>
+<g >
+<title>0x735930461c79 (libcuda.so.580.95.05:0) (176,888 microjoules, 0.06%)</title><rect x="883.7" y="485" width="0.7" height="15.0" fill="rgb(211,30,7)" rx="2" ry="2" />
+<text  x="886.72" y="495.5" ></text>
+</g>
+<g >
+<title>0x735930461bb1 (libcuda.so.580.95.05:0) (1,043,146 microjoules, 0.34%)</title><rect x="821.7" y="485" width="4.0" height="15.0" fill="rgb(242,170,40)" rx="2" ry="2" />
+<text  x="824.70" y="495.5" ></text>
+</g>
+<g >
+<title>0x7359301d3b22 (libcuda.so.580.95.05:0) (291,775 microjoules, 0.09%)</title><rect x="1102.9" y="453" width="1.1" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="1105.86" y="463.5" ></text>
+</g>
+<g >
+<title>0x735930335b64 (libcuda.so.580.95.05:0) (1,036,793 microjoules, 0.34%)</title><rect x="1051.4" y="389" width="4.0" height="15.0" fill="rgb(206,8,2)" rx="2" ry="2" />
+<text  x="1054.43" y="399.5" ></text>
+</g>
+<g >
+<title>0x735930420794 (libcuda.so.580.95.05:0) (283,018 microjoules, 0.09%)</title><rect x="1031.7" y="197" width="1.1" height="15.0" fill="rgb(247,195,46)" rx="2" ry="2" />
+<text  x="1034.69" y="207.5" ></text>
+</g>
+<g >
+<title>0x73592f90d60a (libcupti.so.2025.1.1:0) (352,368 microjoules, 0.11%)</title><rect x="1081.3" y="501" width="1.4" height="15.0" fill="rgb(240,165,39)" rx="2" ry="2" />
+<text  x="1084.34" y="511.5" ></text>
+</g>
+<g >
+<title>0x735930f9d23e (libcuda.so.580.95.05:0) (287,699 microjoules, 0.09%)</title><rect x="529.9" y="549" width="1.1" height="15.0" fill="rgb(247,197,47)" rx="2" ry="2" />
+<text  x="532.86" y="559.5" ></text>
+</g>
+<g >
+<title>0x73592f917c50 (libcupti.so.2025.1.1:0) (1,036,793 microjoules, 0.34%)</title><rect x="1051.4" y="373" width="4.0" height="15.0" fill="rgb(218,63,15)" rx="2" ry="2" />
+<text  x="1054.43" y="383.5" ></text>
+</g>
+<g >
+<title>torch::PythonArgParser::PythonArgParser (libtorch_python.so:0) (342,315 microjoules, 0.11%)</title><rect x="1032.8" y="709" width="1.3" height="15.0" fill="rgb(226,101,24)" rx="2" ry="2" />
+<text  x="1035.77" y="719.5" ></text>
+</g>
+<g >
+<title>torch::autograd::THPVariable_add (libtorch_python.so:0) (38,726,127 microjoules, 12.60%)</title><rect x="1041.4" y="709" width="148.6" height="15.0" fill="rgb(251,213,50)" rx="2" ry="2" />
+<text  x="1044.38" y="719.5" >torch::autograd::T..</text>
+</g>
+<g >
+<title>0x7358217797b1 (libcublasLt.so.12:0) (2,132,771 microjoules, 0.69%)</title><rect x="322.1" y="325" width="8.1" height="15.0" fill="rgb(212,35,8)" rx="2" ry="2" />
+<text  x="325.05" y="335.5" ></text>
+</g>
+<g >
+<title>0x73592c23a641 (libcudart.so.12:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="325" width="178.4" height="15.0" fill="rgb(218,63,15)" rx="2" ry="2" />
+<text  x="143.62" y="335.5" >0x73592c23a641 (libcuda..</text>
+</g>
+<g >
+<title>0x735936306c64 ([vdso]:0) (1,146,026 microjoules, 0.37%)</title><rect x="970.2" y="517" width="4.4" height="15.0" fill="rgb(220,71,17)" rx="2" ry="2" />
+<text  x="973.19" y="527.5" ></text>
+</g>
+<g >
+<title>0x73585319d2e9 (libcublas.so.12:0) (784,005 microjoules, 0.25%)</title><rect x="319.0" y="405" width="3.1" height="15.0" fill="rgb(230,115,27)" rx="2" ry="2" />
+<text  x="322.05" y="415.5" ></text>
+</g>
+<g >
+<title>0x735852ee4fa5 (libcublas.so.12:0) (2,132,771 microjoules, 0.69%)</title><rect x="322.1" y="469" width="8.1" height="15.0" fill="rgb(242,171,40)" rx="2" ry="2" />
+<text  x="325.05" y="479.5" ></text>
+</g>
+<g >
+<title>0x7359302b8f9f (libcuda.so.580.95.05:0) (521,745 microjoules, 0.17%)</title><rect x="1085.8" y="309" width="2.0" height="15.0" fill="rgb(222,78,18)" rx="2" ry="2" />
+<text  x="1088.81" y="319.5" ></text>
+</g>
+<g >
+<title>0x7359302bf912 (libcuda.so.580.95.05:0) (291,775 microjoules, 0.09%)</title><rect x="1102.9" y="437" width="1.1" height="15.0" fill="rgb(253,221,53)" rx="2" ry="2" />
+<text  x="1105.86" y="447.5" ></text>
+</g>
+<g >
+<title>0x7359302f99e0 (libcuda.so.580.95.05:0) (1,581,457 microjoules, 0.51%)</title><rect x="1095.3" y="469" width="6.1" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1098.32" y="479.5" ></text>
+</g>
+<g >
+<title>0x73593021f183 (libcuda.so.580.95.05:0) (56,252,834 microjoules, 18.30%)</title><rect x="668.5" y="501" width="215.9" height="15.0" fill="rgb(219,67,16)" rx="2" ry="2" />
+<text  x="671.51" y="511.5" >0x73593021f183 (libcuda.so.5..</text>
+</g>
+<g >
+<title>0x73592f91624b (libcupti.so.2025.1.1:0) (449,529 microjoules, 0.15%)</title><rect x="1169.8" y="501" width="1.7" height="15.0" fill="rgb(225,92,22)" rx="2" ry="2" />
+<text  x="1172.80" y="511.5" ></text>
+</g>
+<g >
+<title>0x73592c23ea69 (libcudart.so.12:0) (2,255,087 microjoules, 0.73%)</title><rect x="1085.8" y="517" width="8.7" height="15.0" fill="rgb(250,210,50)" rx="2" ry="2" />
+<text  x="1088.81" y="527.5" ></text>
+</g>
+<g >
+<title>0x7359302dc62a (libcuda.so.580.95.05:0) (521,745 microjoules, 0.17%)</title><rect x="1085.8" y="357" width="2.0" height="15.0" fill="rgb(219,64,15)" rx="2" ry="2" />
+<text  x="1088.81" y="367.5" ></text>
+</g>
+<g >
+<title>0x73592f958bc9 (libcupti.so.2025.1.1:0) (430,400 microjoules, 0.14%)</title><rect x="1171.5" y="501" width="1.7" height="15.0" fill="rgb(237,150,35)" rx="2" ry="2" />
+<text  x="1174.53" y="511.5" ></text>
+</g>
+<g >
+<title>tiny_kernels (large_matmul_vs_tiny_kernels.py:39) (1,715,523 microjoules, 0.56%)</title><rect x="1027.5" y="741" width="6.6" height="15.0" fill="rgb(212,32,7)" rx="2" ry="2" />
+<text  x="1030.50" y="751.5" ></text>
+</g>
+<g >
+<title>at::detail::empty_generic (libtorch_cpu.so:0) (852,279 microjoules, 0.28%)</title><rect x="1047.0" y="453" width="3.2" height="15.0" fill="rgb(251,212,50)" rx="2" ry="2" />
+<text  x="1049.98" y="463.5" ></text>
+</g>
+<g >
+<title>0x735930461b7d (libcuda.so.580.95.05:0) (2,118,830 microjoules, 0.69%)</title><rect x="799.3" y="485" width="8.1" height="15.0" fill="rgb(240,162,38)" rx="2" ry="2" />
+<text  x="802.29" y="495.5" ></text>
+</g>
+<g >
+<title>0x73593026a1f5 (libcuda.so.580.95.05:0) (784,005 microjoules, 0.25%)</title><rect x="319.0" y="293" width="3.1" height="15.0" fill="rgb(209,21,5)" rx="2" ry="2" />
+<text  x="322.05" y="303.5" ></text>
+</g>
+<g >
+<title>0x73592c23b31a (libcudart.so.12:0) (1,373,208 microjoules, 0.45%)</title><rect x="1027.5" y="405" width="5.3" height="15.0" fill="rgb(241,166,39)" rx="2" ry="2" />
+<text  x="1030.50" y="415.5" ></text>
+</g>
+<g >
+<title>c10::cuda::CUDACachingAllocator::Native::NativeCachingAllocator::allocate (libc10_cuda.so:0) (852,279 microjoules, 0.28%)</title><rect x="1047.0" y="405" width="3.2" height="15.0" fill="rgb(207,13,3)" rx="2" ry="2" />
+<text  x="1049.98" y="415.5" ></text>
+</g>
+<g >
+<title>0x73592f94a0c5 (libcupti.so.2025.1.1:0) (297,370 microjoules, 0.10%)</title><rect x="1112.3" y="357" width="1.1" height="15.0" fill="rgb(228,106,25)" rx="2" ry="2" />
+<text  x="1115.29" y="367.5" ></text>
+</g>
+<g >
+<title>0x735930461b53 (libcuda.so.580.95.05:0) (8,482,278 microjoules, 2.76%)</title><rect x="688.3" y="485" width="32.6" height="15.0" fill="rgb(219,67,16)" rx="2" ry="2" />
+<text  x="691.33" y="495.5" >0x..</text>
+</g>
+<g >
+<title>cuDevicePrimaryCtxGetState (libcuda.so.580.95.05:0) (1,345,132 microjoules, 0.44%)</title><rect x="1050.2" y="405" width="5.2" height="15.0" fill="rgb(214,43,10)" rx="2" ry="2" />
+<text  x="1053.25" y="415.5" ></text>
+</g>
+<g >
+<title>0x7359302295be (libcuda.so.580.95.05:0) (31,934,011 microjoules, 10.39%)</title><rect x="140.6" y="149" width="122.6" height="15.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="143.62" y="159.5" >0x7359302295be ..</text>
+</g>
+<g >
+<title>0x73582213e389 (libcublasLt.so.12:0) (542,396 microjoules, 0.18%)</title><rect x="324.2" y="213" width="2.1" height="15.0" fill="rgb(232,125,29)" rx="2" ry="2" />
+<text  x="327.24" y="223.5" ></text>
+</g>
+<g >
+<title>0x73593040a229 (libcuda.so.580.95.05:0) (1,136,990 microjoules, 0.37%)</title><rect x="557.5" y="533" width="4.4" height="15.0" fill="rgb(239,157,37)" rx="2" ry="2" />
+<text  x="560.52" y="543.5" ></text>
+</g>
+<g >
+<title>0x7359304a6d80 (libcuda.so.580.95.05:0) (297,370 microjoules, 0.10%)</title><rect x="1112.3" y="325" width="1.1" height="15.0" fill="rgb(246,192,45)" rx="2" ry="2" />
+<text  x="1115.29" y="335.5" ></text>
+</g>
+<g >
+<title>cublasCreate_v2 (libcublas.so.12:0) (784,005 microjoules, 0.25%)</title><rect x="319.0" y="453" width="3.1" height="15.0" fill="rgb(205,3,0)" rx="2" ry="2" />
+<text  x="322.05" y="463.5" ></text>
+</g>
+<g >
+<title>0x7359302be5ee (libcuda.so.580.95.05:0) (297,370 microjoules, 0.10%)</title><rect x="1112.3" y="421" width="1.1" height="15.0" fill="rgb(220,69,16)" rx="2" ry="2" />
+<text  x="1115.29" y="431.5" ></text>
+</g>
+<g >
+<title>pthread_getspecific (libc.so.6:0) (803,908 microjoules, 0.26%)</title><rect x="1078.3" y="469" width="3.0" height="15.0" fill="rgb(246,192,45)" rx="2" ry="2" />
+<text  x="1081.25" y="479.5" ></text>
+</g>
+<g >
+<title>cuLibraryLoadData (libcuda.so.580.95.05:0) (569,525 microjoules, 0.19%)</title><rect x="322.1" y="197" width="2.1" height="15.0" fill="rgb(244,183,43)" rx="2" ry="2" />
+<text  x="325.05" y="207.5" ></text>
+</g>
+<g >
+<title>0x73592f91576a (libcupti.so.2025.1.1:0) (449,529 microjoules, 0.15%)</title><rect x="1169.8" y="485" width="1.7" height="15.0" fill="rgb(242,174,41)" rx="2" ry="2" />
+<text  x="1172.80" y="495.5" ></text>
+</g>
+<g >
+<title>cudaLaunchKernel (libcudart.so.12:0) (22,340,938 microjoules, 7.27%)</title><rect x="1082.7" y="549" width="85.7" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1085.69" y="559.5" >cudaLaunch..</text>
+</g>
+<g >
+<title>0x73585313a10f (libcublas.so.12:0) (784,005 microjoules, 0.25%)</title><rect x="319.0" y="421" width="3.1" height="15.0" fill="rgb(246,190,45)" rx="2" ry="2" />
+<text  x="322.05" y="431.5" ></text>
+</g>
+<g >
+<title>0x73592f9519cd (libcupti.so.2025.1.1:0) (301,194 microjoules, 0.10%)</title><rect x="1106.6" y="373" width="1.2" height="15.0" fill="rgb(219,68,16)" rx="2" ry="2" />
+<text  x="1109.61" y="383.5" ></text>
+</g>
+<g >
+<title>clock_gettime (libc.so.6:0) (16,748,337 microjoules, 5.45%)</title><rect x="915.3" y="533" width="64.2" height="15.0" fill="rgb(247,193,46)" rx="2" ry="2" />
+<text  x="918.26" y="543.5" >clock_g..</text>
+</g>
+<g >
+<title>c10::cuda::impl::CUDAGuardImpl::uncheckedSetDevice (libc10_cuda.so:0) (1,733,032 microjoules, 0.56%)</title><rect x="1050.2" y="453" width="6.7" height="15.0" fill="rgb(216,54,13)" rx="2" ry="2" />
+<text  x="1053.25" y="463.5" ></text>
+</g>
+<g >
+<title>at::native::gpu_kernel_impl_nocast&lt;at::native::FillFunctor&lt;float&gt; &gt; (libtorch_cuda.so:0) (1,373,208 microjoules, 0.45%)</title><rect x="1027.5" y="501" width="5.3" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
+<text  x="1030.50" y="511.5" ></text>
+</g>
+<g >
+<title>0x735930f9d585 (libcuda.so.580.95.05:0) (81,957,513 microjoules, 26.66%)</title><rect x="582.8" y="549" width="314.5" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="585.80" y="559.5" >0x735930f9d585 (libcuda.so.580.95.05:0)</text>
+</g>
+<g >
+<title>0x7358531372de (libcublas.so.12:0) (784,005 microjoules, 0.25%)</title><rect x="319.0" y="341" width="3.1" height="15.0" fill="rgb(231,123,29)" rx="2" ry="2" />
+<text  x="322.05" y="351.5" ></text>
+</g>
+<g >
+<title>cuLibraryLoadData (libcuda.so.580.95.05:0) (521,745 microjoules, 0.17%)</title><rect x="1085.8" y="405" width="2.0" height="15.0" fill="rgb(244,183,43)" rx="2" ry="2" />
+<text  x="1088.81" y="415.5" ></text>
+</g>
+<g >
+<title>0x73592c2356a2 (libcudart.so.12:0) (377,567 microjoules, 0.12%)</title><rect x="1056.9" y="389" width="1.4" height="15.0" fill="rgb(205,4,1)" rx="2" ry="2" />
+<text  x="1059.90" y="399.5" ></text>
+</g>
+<g >
+<title>at::detail::_empty_generic&lt;long&gt; (libtorch_cpu.so:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="453" width="178.4" height="15.0" fill="rgb(208,16,4)" rx="2" ry="2" />
+<text  x="143.62" y="463.5" >at::detail::_empty_gene..</text>
+</g>
+<g >
+<title>0x73592f917c50 (libcupti.so.2025.1.1:0) (224,418 microjoules, 0.07%)</title><rect x="1094.5" y="485" width="0.8" height="15.0" fill="rgb(218,63,15)" rx="2" ry="2" />
+<text  x="1097.46" y="495.5" ></text>
+</g>
+<g >
+<title>0x73593033e2dc (libcuda.so.580.95.05:0) (521,745 microjoules, 0.17%)</title><rect x="1085.8" y="389" width="2.0" height="15.0" fill="rgb(206,5,1)" rx="2" ry="2" />
+<text  x="1088.81" y="399.5" ></text>
+</g>
+<g >
+<title>0x73593033f373 (libcuda.so.580.95.05:0) (1,733,342 microjoules, 0.56%)</title><rect x="1087.8" y="437" width="6.7" height="15.0" fill="rgb(243,179,42)" rx="2" ry="2" />
+<text  x="1090.81" y="447.5" ></text>
+</g>
+<g >
+<title>0x735930461c77 (libcuda.so.580.95.05:0) (1,132,660 microjoules, 0.37%)</title><rect x="879.4" y="485" width="4.3" height="15.0" fill="rgb(224,89,21)" rx="2" ry="2" />
+<text  x="882.37" y="495.5" ></text>
+</g>
+<g >
+<title>at::cuda::detail::(anonymous namespace)::_hasPrimaryContext (libtorch_cuda.so:0) (449,529 microjoules, 0.15%)</title><rect x="1169.8" y="565" width="1.7" height="15.0" fill="rgb(248,198,47)" rx="2" ry="2" />
+<text  x="1172.80" y="575.5" ></text>
+</g>
+<g >
+<title>0x735852dbbe3a (libcublas.so.12:0) (2,132,771 microjoules, 0.69%)</title><rect x="322.1" y="421" width="8.1" height="15.0" fill="rgb(240,162,38)" rx="2" ry="2" />
+<text  x="325.05" y="431.5" ></text>
+</g>
+<g >
+<title>0x73593040a158 (libcuda.so.580.95.05:0) (736,729 microjoules, 0.24%)</title><rect x="543.6" y="533" width="2.9" height="15.0" fill="rgb(232,127,30)" rx="2" ry="2" />
+<text  x="546.63" y="543.5" ></text>
+</g>
+<g >
+<title>&lt;module&gt; (large_matmul_vs_tiny_kernels.py:53) (231,095,577 microjoules, 75.16%)</title><rect x="140.6" y="757" width="886.9" height="15.0" fill="rgb(243,179,42)" rx="2" ry="2" />
+<text  x="143.62" y="767.5" >&lt;module&gt; (large_matmul_vs_tiny_kernels.py:53)</text>
+</g>
+<g >
+<title>0x735935ebaadf (libc.so.6:0) (1,733,342 microjoules, 0.56%)</title><rect x="1087.8" y="261" width="6.7" height="15.0" fill="rgb(251,212,50)" rx="2" ry="2" />
+<text  x="1090.81" y="271.5" ></text>
+</g>
+<g >
+<title>at::_ops::add_Tensor::redispatch (libtorch_cpu.so:0) (34,052,984 microjoules, 11.08%)</title><rect x="1047.0" y="645" width="130.7" height="15.0" fill="rgb(213,40,9)" rx="2" ry="2" />
+<text  x="1049.98" y="655.5" >at::_ops::add_Te..</text>
+</g>
+<g >
+<title>at::_ops::zeros::redispatch (libtorch_cpu.so:0) (1,373,208 microjoules, 0.45%)</title><rect x="1027.5" y="677" width="5.3" height="15.0" fill="rgb(211,28,6)" rx="2" ry="2" />
+<text  x="1030.50" y="687.5" ></text>
+</g>
+<g >
+<title>0x735930f4d068 (libcuda.so.580.95.05:0) (684,065 microjoules, 0.22%)</title><rect x="1027.5" y="117" width="2.6" height="15.0" fill="rgb(214,43,10)" rx="2" ry="2" />
+<text  x="1030.50" y="127.5" ></text>
+</g>
+<g >
+<title>torch::FunctionSignature::parse (libtorch_python.so:0) (436,041 microjoules, 0.14%)</title><rect x="1187.1" y="677" width="1.7" height="15.0" fill="rgb(231,122,29)" rx="2" ry="2" />
+<text  x="1190.10" y="687.5" ></text>
+</g>
+<g >
+<title>0x73592c23bab8 (libcudart.so.12:0) (2,255,087 microjoules, 0.73%)</title><rect x="1085.8" y="485" width="8.7" height="15.0" fill="rgb(242,171,40)" rx="2" ry="2" />
+<text  x="1088.81" y="495.5" ></text>
+</g>
+<g >
+<title>at::TensorIteratorBase::scalar_value&lt;float&gt; (libtorch_cuda.so:0) (383,740 microjoules, 0.12%)</title><rect x="1061.0" y="565" width="1.4" height="15.0" fill="rgb(206,8,2)" rx="2" ry="2" />
+<text  x="1063.98" y="575.5" ></text>
+</g>
+<g >
+<title>at::detail::scalar_tensor_static (libtorch_cpu.so:0) (319,185 microjoules, 0.10%)</title><rect x="1188.8" y="661" width="1.2" height="15.0" fill="rgb(219,65,15)" rx="2" ry="2" />
+<text  x="1191.78" y="671.5" ></text>
+</g>
+<g >
+<title>c10::impl::wrap_kernel_functor_unboxed_&lt;c10::impl::detail::WrapFunctionIntoFunctor_&lt;c10::CompileTimeFunctionPointer&lt;at::Tensor(at::Tensor const&amp;, at::Tensor const&amp;, c10::Scalar const&amp;), &amp;at::(anonymous namespace)::wrapper_CUDA_add_Tensor(at::Tensor const&amp;, at::Tensor const&amp;, c10::Scalar const&amp;)&gt;, at::Tensor, c10::guts::typelist::typelist&lt;at::Tensor const&amp;, at::Tensor const&amp;, c10::Scalar const&amp;&gt; &gt;, at::Tensor(at::Tensor const&amp;, at::Tensor const&amp;, c10::Scalar const&amp;)&gt;::call (libtorch_cuda.so:0) (34,052,984 microjoules, 11.08%)</title><rect x="1047.0" y="629" width="130.7" height="15.0" fill="rgb(205,1,0)" rx="2" ry="2" />
+<text  x="1049.98" y="639.5" >c10::impl::wrap_..</text>
+</g>
+<g >
+<title>0x7359301b8dd7 (libcuda.so.580.95.05:0) (521,745 microjoules, 0.17%)</title><rect x="1085.8" y="373" width="2.0" height="15.0" fill="rgb(217,56,13)" rx="2" ry="2" />
+<text  x="1088.81" y="383.5" ></text>
+</g>
+<g >
+<title>0x735930f9d1b0 (libcuda.so.580.95.05:0) (4,099,713 microjoules, 1.33%)</title><rect x="501.2" y="549" width="15.7" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
+<text  x="504.17" y="559.5" ></text>
+</g>
+<g >
+<title>0x73592c20fb8b (libcudart.so.12:0) (181,365,233 microjoules, 58.99%)</title><rect x="331.5" y="661" width="696.0" height="15.0" fill="rgb(229,111,26)" rx="2" ry="2" />
+<text  x="334.47" y="671.5" >0x73592c20fb8b (libcudart.so.12:0)</text>
+</g>
+<g >
+<title>large_matmul (large_matmul_vs_tiny_kernels.py:29) (2,916,776 microjoules, 0.95%)</title><rect x="319.0" y="741" width="11.2" height="15.0" fill="rgb(205,3,0)" rx="2" ry="2" />
+<text  x="322.05" y="751.5" ></text>
+</g>
+<g >
+<title>0x735930f9d2f5 (libcuda.so.580.95.05:0) (618,443 microjoules, 0.20%)</title><rect x="568.7" y="549" width="2.4" height="15.0" fill="rgb(228,108,25)" rx="2" ry="2" />
+<text  x="571.71" y="559.5" ></text>
+</g>
+<g >
+<title>operator new (libstdc++.so.6.0.33:0) (342,315 microjoules, 0.11%)</title><rect x="1032.8" y="645" width="1.3" height="15.0" fill="rgb(242,173,41)" rx="2" ry="2" />
+<text  x="1035.77" y="655.5" ></text>
+</g>
+<g >
+<title>0x73593027e375 (libcuda.so.580.95.05:0) (172,890 microjoules, 0.06%)</title><rect x="323.6" y="117" width="0.6" height="15.0" fill="rgb(218,60,14)" rx="2" ry="2" />
+<text  x="326.58" y="127.5" ></text>
+</g>
+<g >
+<title>0x73592f9157da (libcupti.so.2025.1.1:0) (1,036,793 microjoules, 0.34%)</title><rect x="1051.4" y="341" width="4.0" height="15.0" fill="rgb(245,187,44)" rx="2" ry="2" />
+<text  x="1054.43" y="351.5" ></text>
+</g>
+<g >
+<title>0x73593021f157 (libcuda.so.580.95.05:0) (761,946 microjoules, 0.25%)</title><rect x="599.5" y="501" width="2.9" height="15.0" fill="rgb(213,38,9)" rx="2" ry="2" />
+<text  x="602.52" y="511.5" ></text>
+</g>
+<g >
+<title>0x735930339f77 (libcuda.so.580.95.05:0) (181,365,233 microjoules, 58.99%)</title><rect x="331.5" y="629" width="696.0" height="15.0" fill="rgb(229,111,26)" rx="2" ry="2" />
+<text  x="334.47" y="639.5" >0x735930339f77 (libcuda.so.580.95.05:0)</text>
+</g>
+<g >
+<title>0x73593033271c (libcuda.so.580.95.05:0) (784,005 microjoules, 0.25%)</title><rect x="319.0" y="309" width="3.1" height="15.0" fill="rgb(232,127,30)" rx="2" ry="2" />
+<text  x="322.05" y="319.5" ></text>
+</g>
+<g >
+<title>0x73582216db4a (libcublasLt.so.12:0) (2,132,771 microjoules, 0.69%)</title><rect x="322.1" y="261" width="8.1" height="15.0" fill="rgb(233,129,30)" rx="2" ry="2" />
+<text  x="325.05" y="271.5" ></text>
+</g>
+<g >
+<title>0x735930fb92ea (libcuda.so.580.95.05:0) (313,910 microjoules, 0.10%)</title><rect x="1105.4" y="437" width="1.2" height="15.0" fill="rgb(213,40,9)" rx="2" ry="2" />
+<text  x="1108.40" y="447.5" ></text>
+</g>
+<g >
+<title>0x735936306c36 ([vdso]:0) (352,368 microjoules, 0.11%)</title><rect x="1081.3" y="437" width="1.4" height="15.0" fill="rgb(226,101,24)" rx="2" ry="2" />
+<text  x="1084.34" y="447.5" ></text>
+</g>
+<g >
+<title>0x735930fb93e3 (libcuda.so.580.95.05:0) (301,194 microjoules, 0.10%)</title><rect x="1106.6" y="437" width="1.2" height="15.0" fill="rgb(254,227,54)" rx="2" ry="2" />
+<text  x="1109.61" y="447.5" ></text>
+</g>
+<g >
+<title>0x73593022b9f4 (libcuda.so.580.95.05:0) (103,226,326 microjoules, 33.57%)</title><rect x="501.2" y="565" width="396.1" height="15.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="504.17" y="575.5" >0x73593022b9f4 (libcuda.so.580.95.05:0)</text>
+</g>
+<g >
+<title>0x7359302f9286 (libcuda.so.580.95.05:0) (1,581,457 microjoules, 0.51%)</title><rect x="1095.3" y="453" width="6.1" height="15.0" fill="rgb(242,171,40)" rx="2" ry="2" />
+<text  x="1098.32" y="463.5" ></text>
+</g>
+<g >
+<title>0x7359302db82b (libcuda.so.580.95.05:0) (521,745 microjoules, 0.17%)</title><rect x="1085.8" y="341" width="2.0" height="15.0" fill="rgb(206,5,1)" rx="2" ry="2" />
+<text  x="1088.81" y="351.5" ></text>
+</g>
+<g >
+<title>cudaLaunchKernel (libcudart.so.12:0) (1,373,208 microjoules, 0.45%)</title><rect x="1027.5" y="485" width="5.3" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1030.50" y="495.5" ></text>
+</g>
+<g >
+<title>THPVariable_subclass_clear (libtorch_python.so:0) (1,899,998 microjoules, 0.62%)</title><rect x="1034.1" y="709" width="7.3" height="15.0" fill="rgb(208,15,3)" rx="2" ry="2" />
+<text  x="1037.09" y="719.5" ></text>
+</g>
+<g >
+<title>c10::StorageImpl::StorageImpl (libtorch_cpu.so:0) (319,185 microjoules, 0.10%)</title><rect x="1188.8" y="581" width="1.2" height="15.0" fill="rgb(210,25,6)" rx="2" ry="2" />
+<text  x="1191.78" y="591.5" ></text>
+</g>
+<g >
+<title>0x7359302752a8 (libcuda.so.580.95.05:0) (1,733,342 microjoules, 0.56%)</title><rect x="1087.8" y="309" width="6.7" height="15.0" fill="rgb(243,179,42)" rx="2" ry="2" />
+<text  x="1090.81" y="319.5" ></text>
+</g>
+<g >
+<title>0x735852dbe2e4 (libcublas.so.12:0) (2,132,771 microjoules, 0.69%)</title><rect x="322.1" y="453" width="8.1" height="15.0" fill="rgb(218,60,14)" rx="2" ry="2" />
+<text  x="325.05" y="463.5" ></text>
+</g>
+<g >
+<title>0x73593040a416 (libcuda.so.580.95.05:0) (542,517 microjoules, 0.18%)</title><rect x="566.6" y="533" width="2.1" height="15.0" fill="rgb(252,216,51)" rx="2" ry="2" />
+<text  x="569.63" y="543.5" ></text>
+</g>
+<g >
+<title>0x73593025d5d5 (libcuda.so.580.95.05:0) (181,365,233 microjoules, 58.99%)</title><rect x="331.5" y="597" width="696.0" height="15.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="334.47" y="607.5" >0x73593025d5d5 (libcuda.so.580.95.05:0)</text>
+</g>
+<g >
+<title>0x73593021f050 (libcuda.so.580.95.05:0) (209,867 microjoules, 0.07%)</title><rect x="589.9" y="501" width="0.8" height="15.0" fill="rgb(214,45,10)" rx="2" ry="2" />
+<text  x="592.92" y="511.5" ></text>
+</g>
+<g >
+<title>0x73593021f186 (libcuda.so.580.95.05:0) (1,635,686 microjoules, 0.53%)</title><rect x="884.4" y="501" width="6.3" height="15.0" fill="rgb(250,208,49)" rx="2" ry="2" />
+<text  x="887.40" y="511.5" ></text>
+</g>
+<g >
+<title>0x7359302be4c0 (libcuda.so.580.95.05:0) (1,180,003 microjoules, 0.38%)</title><rect x="1107.8" y="389" width="4.5" height="15.0" fill="rgb(231,123,29)" rx="2" ry="2" />
+<text  x="1110.76" y="399.5" ></text>
+</g>
+<g >
+<title>0x735936306c36 ([vdso]:0) (13,616,314 microjoules, 4.43%)</title><rect x="916.6" y="517" width="52.3" height="15.0" fill="rgb(226,101,24)" rx="2" ry="2" />
+<text  x="919.64" y="527.5" >0x735..</text>
+</g>
+<g >
+<title>0x7359301d62c7 (libcuda.so.580.95.05:0) (1,581,457 microjoules, 0.51%)</title><rect x="1095.3" y="485" width="6.1" height="15.0" fill="rgb(246,192,45)" rx="2" ry="2" />
+<text  x="1098.32" y="495.5" ></text>
+</g>
+<g >
+<title>0x735821890591 (libcublasLt.so.12:0) (2,132,771 microjoules, 0.69%)</title><rect x="322.1" y="373" width="8.1" height="15.0" fill="rgb(229,111,26)" rx="2" ry="2" />
+<text  x="325.05" y="383.5" ></text>
+</g>
+<g >
+<title>at::native::_matmul_impl (libtorch_cpu.so:0) (2,916,776 microjoules, 0.95%)</title><rect x="319.0" y="645" width="11.2" height="15.0" fill="rgb(213,37,8)" rx="2" ry="2" />
+<text  x="322.05" y="655.5" ></text>
+</g>
+<g >
+<title>pthread_rwlock_unlock (libc.so.6:0) (1,457,691 microjoules, 0.47%)</title><rect x="1161.1" y="453" width="5.6" height="15.0" fill="rgb(251,212,50)" rx="2" ry="2" />
+<text  x="1164.07" y="463.5" ></text>
+</g>
+<g >
+<title>0x73592c211116 (libcudart.so.12:0) (387,900 microjoules, 0.13%)</title><rect x="1055.4" y="405" width="1.5" height="15.0" fill="rgb(211,28,6)" rx="2" ry="2" />
+<text  x="1058.41" y="415.5" ></text>
+</g>
+<g >
+<title>0x73593026edac (libcuda.so.580.95.05:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="197" width="178.4" height="15.0" fill="rgb(239,158,38)" rx="2" ry="2" />
+<text  x="143.62" y="207.5" >0x73593026edac (libcuda..</text>
+</g>
+<g >
+<title>0x73592f93195a (libcupti.so.2025.1.1:0) (367,570 microjoules, 0.12%)</title><rect x="1115.1" y="341" width="1.4" height="15.0" fill="rgb(249,204,48)" rx="2" ry="2" />
+<text  x="1118.09" y="351.5" ></text>
+</g>
+<g >
+<title>synchronize (__init__.py:1085) (181,365,233 microjoules, 58.99%)</title><rect x="331.5" y="725" width="696.0" height="15.0" fill="rgb(225,92,22)" rx="2" ry="2" />
+<text  x="334.47" y="735.5" >synchronize (__init__.py:1085)</text>
+</g>
+<g >
+<title>ioctl (libc.so.6:0) (31,934,011 microjoules, 10.39%)</title><rect x="140.6" y="101" width="122.6" height="15.0" fill="rgb(215,47,11)" rx="2" ry="2" />
+<text  x="143.62" y="111.5" >ioctl (libc.so...</text>
+</g>
+<g >
+<title>0x73593023d377 (libcuda.so.580.95.05:0) (166,803 microjoules, 0.05%)</title><rect x="900.6" y="549" width="0.6" height="15.0" fill="rgb(237,149,35)" rx="2" ry="2" />
+<text  x="903.59" y="559.5" ></text>
+</g>
+<g >
+<title>0x7359302fe539 (libcuda.so.580.95.05:0) (283,018 microjoules, 0.09%)</title><rect x="1031.7" y="309" width="1.1" height="15.0" fill="rgb(251,214,51)" rx="2" ry="2" />
+<text  x="1034.69" y="319.5" ></text>
+</g>
+<g >
+<title>cuDeviceGetAttribute (libcuda.so.580.95.05:0) (784,005 microjoules, 0.25%)</title><rect x="319.0" y="325" width="3.1" height="15.0" fill="rgb(242,170,40)" rx="2" ry="2" />
+<text  x="322.05" y="335.5" ></text>
+</g>
+<g >
+<title>0x73592c2234e6 (libcudart.so.12:0) (521,745 microjoules, 0.17%)</title><rect x="1085.8" y="421" width="2.0" height="15.0" fill="rgb(236,145,34)" rx="2" ry="2" />
+<text  x="1088.81" y="431.5" ></text>
+</g>
+<g >
+<title>0x7359303330ab (libcuda.so.580.95.05:0) (276,496 microjoules, 0.09%)</title><rect x="1058.3" y="437" width="1.1" height="15.0" fill="rgb(217,59,14)" rx="2" ry="2" />
+<text  x="1061.35" y="447.5" ></text>
+</g>
+<g >
+<title>0x73592c23bb46 (libcudart.so.12:0) (2,255,087 microjoules, 0.73%)</title><rect x="1085.8" y="501" width="8.7" height="15.0" fill="rgb(245,188,44)" rx="2" ry="2" />
+<text  x="1088.81" y="511.5" ></text>
+</g>
+<g >
+<title>0x7359302dd7e5 (libcuda.so.580.95.05:0) (1,733,342 microjoules, 0.56%)</title><rect x="1087.8" y="277" width="6.7" height="15.0" fill="rgb(210,26,6)" rx="2" ry="2" />
+<text  x="1090.81" y="287.5" ></text>
+</g>
+<g >
+<title>0x7359304238de (libcuda.so.580.95.05:0) (684,065 microjoules, 0.22%)</title><rect x="1027.5" y="229" width="2.6" height="15.0" fill="rgb(227,103,24)" rx="2" ry="2" />
+<text  x="1030.50" y="239.5" ></text>
+</g>
+<g >
+<title>at::_ops::fill__Scalar::call (libtorch_cpu.so:0) (1,373,208 microjoules, 0.45%)</title><rect x="1027.5" y="581" width="5.3" height="15.0" fill="rgb(230,117,28)" rx="2" ry="2" />
+<text  x="1030.50" y="591.5" ></text>
+</g>
+<g >
+<title>0x7359302fe2f8 (libcuda.so.580.95.05:0) (684,065 microjoules, 0.22%)</title><rect x="1027.5" y="309" width="2.6" height="15.0" fill="rgb(247,197,47)" rx="2" ry="2" />
+<text  x="1030.50" y="319.5" ></text>
+</g>
+<g >
+<title>c10::cuda::SetDevice (libc10_cuda.so:0) (387,900 microjoules, 0.13%)</title><rect x="1055.4" y="437" width="1.5" height="15.0" fill="rgb(239,160,38)" rx="2" ry="2" />
+<text  x="1058.41" y="447.5" ></text>
+</g>
+<g >
+<title>0x73593031bc35 (libcuda.so.580.95.05:0) (2,251,870 microjoules, 0.73%)</title><rect x="1013.5" y="549" width="8.7" height="15.0" fill="rgb(235,140,33)" rx="2" ry="2" />
+<text  x="1016.55" y="559.5" ></text>
+</g>
+<g >
+<title>0x73592c213e31 (libcudart.so.12:0) (1,373,208 microjoules, 0.45%)</title><rect x="1027.5" y="469" width="5.3" height="15.0" fill="rgb(231,123,29)" rx="2" ry="2" />
+<text  x="1030.50" y="479.5" ></text>
+</g>
+<g >
+<title>clock_gettime (libc.so.6:0) (406,125 microjoules, 0.13%)</title><rect x="1030.1" y="245" width="1.6" height="15.0" fill="rgb(247,193,46)" rx="2" ry="2" />
+<text  x="1033.13" y="255.5" ></text>
+</g>
+<g >
+<title>0x73593048e028 (libcuda.so.580.95.05:0) (4,888,282 microjoules, 1.59%)</title><rect x="263.2" y="69" width="18.7" height="15.0" fill="rgb(231,119,28)" rx="2" ry="2" />
+<text  x="266.17" y="79.5" ></text>
+</g>
+<g >
+<title>0x735936306bf2 ([vdso]:0) (161,113 microjoules, 0.05%)</title><rect x="915.3" y="517" width="0.6" height="15.0" fill="rgb(229,114,27)" rx="2" ry="2" />
+<text  x="918.26" y="527.5" ></text>
+</g>
+<g >
+<title>pybind11::gil_scoped_release::~gil_scoped_release (libtorch_python.so:0) (1,679,268 microjoules, 0.55%)</title><rect x="1180.7" y="693" width="6.4" height="15.0" fill="rgb(230,115,27)" rx="2" ry="2" />
+<text  x="1183.66" y="703.5" ></text>
+</g>
+<g >
+<title>0x73592f95089b (libcupti.so.2025.1.1:0) (803,908 microjoules, 0.26%)</title><rect x="1078.3" y="485" width="3.0" height="15.0" fill="rgb(217,55,13)" rx="2" ry="2" />
+<text  x="1081.25" y="495.5" ></text>
+</g>
+<g >
+<title>pthread_mutex_unlock (libc.so.6:0) (410,262 microjoules, 0.13%)</title><rect x="1149.8" y="357" width="1.6" height="15.0" fill="rgb(214,45,10)" rx="2" ry="2" />
+<text  x="1152.83" y="367.5" ></text>
+</g>
+<g >
+<title>0x7359301d5764 (libcuda.so.580.95.05:0) (672,830 microjoules, 0.22%)</title><rect x="1101.4" y="469" width="2.6" height="15.0" fill="rgb(231,119,28)" rx="2" ry="2" />
+<text  x="1104.39" y="479.5" ></text>
+</g>
+<g >
+<title>0x7359302240ab (libcuda.so.580.95.05:0) (1,532,436 microjoules, 0.50%)</title><rect x="1143.9" y="373" width="5.9" height="15.0" fill="rgb(224,88,21)" rx="2" ry="2" />
+<text  x="1146.95" y="383.5" ></text>
+</g>
+<g >
+<title>cublasSgemm_v2 (libcublas.so.12:0) (2,132,771 microjoules, 0.69%)</title><rect x="322.1" y="485" width="8.1" height="15.0" fill="rgb(243,178,42)" rx="2" ry="2" />
+<text  x="325.05" y="495.5" ></text>
+</g>
+<g >
+<title>0x73593040a161 (libcuda.so.580.95.05:0) (627,128 microjoules, 0.20%)</title><rect x="546.5" y="533" width="2.4" height="15.0" fill="rgb(221,75,18)" rx="2" ry="2" />
+<text  x="549.46" y="543.5" ></text>
+</g>
+<g >
+<title>ioctl (libc.so.6:0) (283,018 microjoules, 0.09%)</title><rect x="1031.7" y="101" width="1.1" height="15.0" fill="rgb(215,47,11)" rx="2" ry="2" />
+<text  x="1034.69" y="111.5" ></text>
+</g>
+<g >
+<title>cudaGetLastError (libcudart.so.12:0) (1,156,276 microjoules, 0.38%)</title><rect x="1078.3" y="549" width="4.4" height="15.0" fill="rgb(232,124,29)" rx="2" ry="2" />
+<text  x="1081.25" y="559.5" ></text>
+</g>
+<g >
+<title>at::detail::empty_cpu (libtorch_cpu.so:0) (319,185 microjoules, 0.10%)</title><rect x="1188.8" y="645" width="1.2" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="1191.78" y="655.5" ></text>
+</g>
+<g >
+<title>0x73592c282418 (libcudart.so.12:0) (521,745 microjoules, 0.17%)</title><rect x="1085.8" y="437" width="2.0" height="15.0" fill="rgb(227,102,24)" rx="2" ry="2" />
+<text  x="1088.81" y="447.5" ></text>
+</g>
+<g >
+<title>0x7359304ae384 (libcuda.so.580.95.05:0) (649,402 microjoules, 0.21%)</title><rect x="1141.5" y="373" width="2.4" height="15.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="1144.46" y="383.5" ></text>
+</g>
+<g >
+<title>clock_gettime (libc.so.6:0) (430,400 microjoules, 0.14%)</title><rect x="1171.5" y="469" width="1.7" height="15.0" fill="rgb(247,193,46)" rx="2" ry="2" />
+<text  x="1174.53" y="479.5" ></text>
+</g>
+<g >
+<title>cudaGetDevice (libcudart.so.12:0) (387,900 microjoules, 0.13%)</title><rect x="1055.4" y="421" width="1.5" height="15.0" fill="rgb(239,159,38)" rx="2" ry="2" />
+<text  x="1058.41" y="431.5" ></text>
+</g>
+<g >
+<title>0x73582213e316 (libcublasLt.so.12:0) (569,525 microjoules, 0.19%)</title><rect x="322.1" y="213" width="2.1" height="15.0" fill="rgb(246,192,45)" rx="2" ry="2" />
+<text  x="325.05" y="223.5" ></text>
+</g>
+<g >
+<title>0x7359302c2b49 (libcuda.so.580.95.05:0) (283,018 microjoules, 0.09%)</title><rect x="1031.7" y="261" width="1.1" height="15.0" fill="rgb(253,221,53)" rx="2" ry="2" />
+<text  x="1034.69" y="271.5" ></text>
+</g>
+<g >
+<title>torch::autograd::TypeError_to_NotImplemented_&lt;&amp;torch::autograd::THPVariable_add(_object*, _object*, _object*)&gt; (libtorch_python.so:0) (38,726,127 microjoules, 12.60%)</title><rect x="1041.4" y="725" width="148.6" height="15.0" fill="rgb(228,108,26)" rx="2" ry="2" />
+<text  x="1044.38" y="735.5" >torch::autograd::T..</text>
+</g>
+<g >
+<title>0x735930420794 (libcuda.so.580.95.05:0) (684,065 microjoules, 0.22%)</title><rect x="1027.5" y="197" width="2.6" height="15.0" fill="rgb(247,195,46)" rx="2" ry="2" />
+<text  x="1030.50" y="207.5" ></text>
+</g>
+<g >
+<title>all (307,471,574 microjoules, 100%)</title><rect x="10.0" y="805" width="1180.0" height="15.0" fill="rgb(213,39,9)" rx="2" ry="2" />
+<text  x="13.00" y="815.5" ></text>
+</g>
+<g >
+<title>0x73593021f153 (libcuda.so.580.95.05:0) (994,655 microjoules, 0.32%)</title><rect x="595.7" y="501" width="3.8" height="15.0" fill="rgb(239,157,37)" rx="2" ry="2" />
+<text  x="598.71" y="511.5" ></text>
+</g>
+<g >
+<title>at::detail::empty_cuda (libtorch_cuda.so:0) (2,962,878 microjoules, 0.96%)</title><rect x="1047.0" y="501" width="11.3" height="15.0" fill="rgb(219,65,15)" rx="2" ry="2" />
+<text  x="1049.98" y="511.5" ></text>
+</g>
+<g >
+<title>0x73585316c5aa (libcublas.so.12:0) (784,005 microjoules, 0.25%)</title><rect x="319.0" y="437" width="3.1" height="15.0" fill="rgb(254,225,53)" rx="2" ry="2" />
+<text  x="322.05" y="447.5" ></text>
+</g>
+<g >
+<title>0x7359302dc62a (libcuda.so.580.95.05:0) (581,313 microjoules, 0.19%)</title><rect x="326.3" y="149" width="2.3" height="15.0" fill="rgb(219,64,15)" rx="2" ry="2" />
+<text  x="329.32" y="159.5" ></text>
+</g>
+<g >
+<title>cuDevicePrimaryCtxGetState (libcuda.so.580.95.05:0) (449,529 microjoules, 0.15%)</title><rect x="1169.8" y="549" width="1.7" height="15.0" fill="rgb(214,43,10)" rx="2" ry="2" />
+<text  x="1172.80" y="559.5" ></text>
+</g>
+<g >
+<title>cuCtxGetDevice (libcuda.so.580.95.05:0) (387,900 microjoules, 0.13%)</title><rect x="1055.4" y="389" width="1.5" height="15.0" fill="rgb(208,17,4)" rx="2" ry="2" />
+<text  x="1058.41" y="399.5" ></text>
+</g>
+<g >
+<title>torch::autograd::THPVariable_zeros (libtorch_python.so:0) (1,715,523 microjoules, 0.56%)</title><rect x="1027.5" y="725" width="6.6" height="15.0" fill="rgb(233,128,30)" rx="2" ry="2" />
+<text  x="1030.50" y="735.5" ></text>
+</g>
+<g >
+<title>0x73593046f3fc (libcuda.so.580.95.05:0) (4,888,282 microjoules, 1.59%)</title><rect x="263.2" y="117" width="18.7" height="15.0" fill="rgb(254,227,54)" rx="2" ry="2" />
+<text  x="266.17" y="127.5" ></text>
+</g>
+<g >
+<title>THPVariable_subclass_dealloc (libtorch_python.so:0) (1,899,998 microjoules, 0.62%)</title><rect x="1034.1" y="725" width="7.3" height="15.0" fill="rgb(234,133,31)" rx="2" ry="2" />
+<text  x="1037.09" y="735.5" ></text>
+</g>
+<g >
+<title>0x735930f9ddd4 (libcuda.so.580.95.05:0) (372,006 microjoules, 0.12%)</title><rect x="1104.0" y="453" width="1.4" height="15.0" fill="rgb(224,91,21)" rx="2" ry="2" />
+<text  x="1106.98" y="463.5" ></text>
+</g>
+<g >
+<title>0x73592f931360 (libcupti.so.2025.1.1:0) (1,078,976 microjoules, 0.35%)</title><rect x="1074.1" y="421" width="4.2" height="15.0" fill="rgb(248,198,47)" rx="2" ry="2" />
+<text  x="1077.11" y="431.5" ></text>
+</g>
+<g >
+<title>0x735935eac1fe (libc.so.6:0) (342,315 microjoules, 0.11%)</title><rect x="1032.8" y="613" width="1.3" height="15.0" fill="rgb(248,199,47)" rx="2" ry="2" />
+<text  x="1035.77" y="623.5" ></text>
+</g>
+<g >
+<title>0x735930499ffa (libcuda.so.580.95.05:0) (4,888,282 microjoules, 1.59%)</title><rect x="263.2" y="85" width="18.7" height="15.0" fill="rgb(209,19,4)" rx="2" ry="2" />
+<text  x="266.17" y="95.5" ></text>
+</g>
+<g >
+<title>0x73593017edf9 (libcuda.so.580.95.05:0) (297,370 microjoules, 0.10%)</title><rect x="1112.3" y="405" width="1.1" height="15.0" fill="rgb(228,108,25)" rx="2" ry="2" />
+<text  x="1115.29" y="415.5" ></text>
+</g>
+<g >
+<title>0x73593040a28e (libcuda.so.580.95.05:0) (2,166,432 microjoules, 0.70%)</title><rect x="1152.8" y="373" width="8.3" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="1155.76" y="383.5" ></text>
+</g>
+<g >
+<title>0x73593021f1a9 (libcuda.so.580.95.05:0) (563,443 microjoules, 0.18%)</title><rect x="891.2" y="501" width="2.2" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="894.23" y="511.5" ></text>
+</g>
+<g >
+<title>0x73592c2414a4 (libcudart.so.12:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="277" width="178.4" height="15.0" fill="rgb(225,93,22)" rx="2" ry="2" />
+<text  x="143.62" y="287.5" >0x73592c2414a4 (libcuda..</text>
+</g>
+<g >
+<title>0x73592f917c50 (libcupti.so.2025.1.1:0) (1,078,976 microjoules, 0.35%)</title><rect x="1074.1" y="469" width="4.2" height="15.0" fill="rgb(218,63,15)" rx="2" ry="2" />
+<text  x="1077.11" y="479.5" ></text>
+</g>
+<g >
+<title>0x73593027e375 (libcuda.so.580.95.05:0) (581,313 microjoules, 0.19%)</title><rect x="326.3" y="117" width="2.3" height="15.0" fill="rgb(218,60,14)" rx="2" ry="2" />
+<text  x="329.32" y="127.5" ></text>
+</g>
+<g >
+<title>0x73593025dde0 (libcuda.so.580.95.05:0) (1,229,444 microjoules, 0.40%)</title><rect x="585.2" y="517" width="4.7" height="15.0" fill="rgb(206,5,1)" rx="2" ry="2" />
+<text  x="588.21" y="527.5" ></text>
+</g>
+<g >
+<title>0x73592f950f81 (libcupti.so.2025.1.1:0) (297,370 microjoules, 0.10%)</title><rect x="1112.3" y="341" width="1.1" height="15.0" fill="rgb(242,174,41)" rx="2" ry="2" />
+<text  x="1115.29" y="351.5" ></text>
+</g>
+<g >
+<title>0x73592c211116 (libcudart.so.12:0) (378,047 microjoules, 0.12%)</title><rect x="1072.7" y="485" width="1.4" height="15.0" fill="rgb(211,28,6)" rx="2" ry="2" />
+<text  x="1075.66" y="495.5" ></text>
+</g>
+<g >
+<title>0x7359302fe077 (libcuda.so.580.95.05:0) (283,018 microjoules, 0.09%)</title><rect x="1031.7" y="293" width="1.1" height="15.0" fill="rgb(220,73,17)" rx="2" ry="2" />
+<text  x="1034.69" y="303.5" ></text>
+</g>
+<g >
+<title>at::_ops::mm::call (libtorch_cpu.so:0) (2,916,776 microjoules, 0.95%)</title><rect x="319.0" y="629" width="11.2" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="322.05" y="639.5" ></text>
+</g>
+<g >
+<title>0x73592f950f26 (libcupti.so.2025.1.1:0) (449,529 microjoules, 0.15%)</title><rect x="1169.8" y="469" width="1.7" height="15.0" fill="rgb(249,204,48)" rx="2" ry="2" />
+<text  x="1172.80" y="479.5" ></text>
+</g>
+<g >
+<title>0x73593045ce1b (libcuda.so.580.95.05:0) (784,005 microjoules, 0.25%)</title><rect x="319.0" y="277" width="3.1" height="15.0" fill="rgb(206,5,1)" rx="2" ry="2" />
+<text  x="322.05" y="287.5" ></text>
+</g>
+<g >
+<title>0x735930258bd1 (libcuda.so.580.95.05:0) (1,180,003 microjoules, 0.38%)</title><rect x="1107.8" y="405" width="4.5" height="15.0" fill="rgb(253,221,53)" rx="2" ry="2" />
+<text  x="1110.76" y="415.5" ></text>
+</g>
+<g >
+<title>0x735822532a07 (libcublasLt.so.12:0) (1,111,921 microjoules, 0.36%)</title><rect x="322.1" y="229" width="4.2" height="15.0" fill="rgb(253,221,53)" rx="2" ry="2" />
+<text  x="325.05" y="239.5" ></text>
+</g>
+<g >
+<title>0x735935f8950a (libc.so.6:0) (172,890 microjoules, 0.06%)</title><rect x="323.6" y="85" width="0.6" height="15.0" fill="rgb(226,100,24)" rx="2" ry="2" />
+<text  x="326.58" y="95.5" ></text>
+</g>
+<g >
+<title>0x73593025de4a (libcuda.so.580.95.05:0) (437,878 microjoules, 0.14%)</title><rect x="893.4" y="517" width="1.7" height="15.0" fill="rgb(249,205,49)" rx="2" ry="2" />
+<text  x="896.40" y="527.5" ></text>
+</g>
+<g >
+<title>0x73593044200f (libcuda.so.580.95.05:0) (684,065 microjoules, 0.22%)</title><rect x="1027.5" y="101" width="2.6" height="15.0" fill="rgb(252,216,51)" rx="2" ry="2" />
+<text  x="1030.50" y="111.5" ></text>
+</g>
+<g >
+<title>at::native::add_kernel(at::TensorIteratorBase&amp;, c10::Scalar const&amp;)::{lambda()#1}::operator() const (libtorch_cuda.so:0) (27,998,138 microjoules, 9.11%)</title><rect x="1061.0" y="581" width="107.4" height="15.0" fill="rgb(246,189,45)" rx="2" ry="2" />
+<text  x="1063.98" y="591.5" >at::native::a..</text>
+</g>
+<g >
+<title>0x73593025de63 (libcuda.so.580.95.05:0) (140,241 microjoules, 0.05%)</title><rect x="896.8" y="517" width="0.5" height="15.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="899.79" y="527.5" ></text>
+</g>
+<g >
+<title>0x735930fb94c3 (libcuda.so.580.95.05:0) (1,907,712 microjoules, 0.62%)</title><rect x="1107.8" y="437" width="7.3" height="15.0" fill="rgb(210,26,6)" rx="2" ry="2" />
+<text  x="1110.76" y="447.5" ></text>
+</g>
+<g >
+<title>at::native::empty_cuda (libtorch_cuda.so:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="517" width="178.4" height="15.0" fill="rgb(240,161,38)" rx="2" ry="2" />
+<text  x="143.62" y="527.5" >at::native::empty_cuda ..</text>
+</g>
+<g >
+<title>c10::reportMemoryUsageToProfiler (libc10.so:0) (852,279 microjoules, 0.28%)</title><rect x="1047.0" y="341" width="3.2" height="15.0" fill="rgb(206,7,1)" rx="2" ry="2" />
+<text  x="1049.98" y="351.5" ></text>
+</g>
+<g >
+<title>0x73592f95d0d8 (libcupti.so.2025.1.1:0) (3,772,469 microjoules, 1.23%)</title><rect x="1115.1" y="373" width="14.5" height="15.0" fill="rgb(226,98,23)" rx="2" ry="2" />
+<text  x="1118.09" y="383.5" ></text>
+</g>
+<g >
+<title>0x7359304ae696 (libcuda.so.580.95.05:0) (1,598,950 microjoules, 0.52%)</title><rect x="1171.5" y="549" width="6.2" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1174.53" y="559.5" ></text>
+</g>
+<g >
+<title>c10::cuda::getCurrentCUDAStream (libc10_cuda.so:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="405" width="178.4" height="15.0" fill="rgb(214,45,10)" rx="2" ry="2" />
+<text  x="143.62" y="415.5" >c10::cuda::getCurrentCU..</text>
+</g>
+<g >
+<title>at::_ops::add_Tensor::call (libtorch_cpu.so:0) (35,978,682 microjoules, 11.70%)</title><rect x="1042.6" y="693" width="138.1" height="15.0" fill="rgb(219,64,15)" rx="2" ry="2" />
+<text  x="1045.58" y="703.5" >at::_ops::add_Ten..</text>
+</g>
+<g >
+<title>0x7359303a9802 (libcuda.so.580.95.05:0) (224,418 microjoules, 0.07%)</title><rect x="1094.5" y="501" width="0.8" height="15.0" fill="rgb(206,8,2)" rx="2" ry="2" />
+<text  x="1097.46" y="511.5" ></text>
+</g>
+<g >
+<title>0x73593045df70 (libcuda.so.580.95.05:0) (1,297,116 microjoules, 0.42%)</title><rect x="590.7" y="485" width="5.0" height="15.0" fill="rgb(227,103,24)" rx="2" ry="2" />
+<text  x="593.73" y="495.5" ></text>
+</g>
+<g >
+<title>0x73592c242189 (libcudart.so.12:0) (458,984 microjoules, 0.15%)</title><rect x="1166.7" y="517" width="1.7" height="15.0" fill="rgb(220,72,17)" rx="2" ry="2" />
+<text  x="1169.67" y="527.5" ></text>
+</g>
+<g >
+<title>0x73593022b9f4 (libcuda.so.580.95.05:0) (9,518,718 microjoules, 3.10%)</title><rect x="282.5" y="117" width="36.5" height="15.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="285.51" y="127.5" >0x7..</text>
+</g>
+<g >
+<title>0x73593022bccc (libcuda.so.580.95.05:0) (30,070,550 microjoules, 9.78%)</title><rect x="906.8" y="565" width="115.4" height="15.0" fill="rgb(228,107,25)" rx="2" ry="2" />
+<text  x="909.79" y="575.5" >0x73593022bccc..</text>
+</g>
+<g >
+<title>c10::cuda::getCurrentCUDAStream (libc10_cuda.so:0) (1,457,023 microjoules, 0.47%)</title><rect x="1072.7" y="549" width="5.6" height="15.0" fill="rgb(214,45,10)" rx="2" ry="2" />
+<text  x="1075.66" y="559.5" ></text>
+</g>
+<g >
+<title>0x7359301d58db (libcuda.so.580.95.05:0) (372,006 microjoules, 0.12%)</title><rect x="1104.0" y="469" width="1.4" height="15.0" fill="rgb(230,116,27)" rx="2" ry="2" />
+<text  x="1106.98" y="479.5" ></text>
+</g>
+<g >
+<title>pthread_rwlock_unlock (libc.so.6:0) (377,567 microjoules, 0.12%)</title><rect x="1056.9" y="373" width="1.4" height="15.0" fill="rgb(251,212,50)" rx="2" ry="2" />
+<text  x="1059.90" y="383.5" ></text>
+</g>
+<g >
+<title>0x73592f91624b (libcupti.so.2025.1.1:0) (276,496 microjoules, 0.09%)</title><rect x="1058.3" y="405" width="1.1" height="15.0" fill="rgb(225,92,22)" rx="2" ry="2" />
+<text  x="1061.35" y="415.5" ></text>
+</g>
+<g >
+<title>0x7359301c9ad5 (libcuda.so.580.95.05:0) (14,505,199 microjoules, 4.72%)</title><rect x="1105.4" y="453" width="55.7" height="15.0" fill="rgb(236,145,34)" rx="2" ry="2" />
+<text  x="1108.40" y="463.5" >0x735..</text>
+</g>
+<g >
+<title>0x7359301b8a29 (libcuda.so.580.95.05:0) (1,373,208 microjoules, 0.45%)</title><rect x="1027.5" y="357" width="5.3" height="15.0" fill="rgb(246,192,45)" rx="2" ry="2" />
+<text  x="1030.50" y="367.5" ></text>
+</g>
+<g >
+<title>0x73592f95d181 (libcupti.so.2025.1.1:0) (3,772,469 microjoules, 1.23%)</title><rect x="1115.1" y="389" width="14.5" height="15.0" fill="rgb(249,204,48)" rx="2" ry="2" />
+<text  x="1118.09" y="399.5" ></text>
+</g>
+<g >
+<title>0x73593031bbfb (libcuda.so.580.95.05:0) (231,393 microjoules, 0.08%)</title><rect x="906.8" y="549" width="0.9" height="15.0" fill="rgb(221,77,18)" rx="2" ry="2" />
+<text  x="909.79" y="559.5" ></text>
+</g>
+<g >
+<title>0x735930f9d24f (libcuda.so.580.95.05:0) (1,747,516 microjoules, 0.57%)</title><rect x="534.0" y="549" width="6.7" height="15.0" fill="rgb(235,138,33)" rx="2" ry="2" />
+<text  x="536.95" y="559.5" ></text>
+</g>
+<g >
+<title>at::native::structured_mm_out_cuda::impl (libtorch_cuda.so:0) (2,916,776 microjoules, 0.95%)</title><rect x="319.0" y="533" width="11.2" height="15.0" fill="rgb(226,98,23)" rx="2" ry="2" />
+<text  x="322.05" y="543.5" ></text>
+</g>
+<g >
+<title>cuCtxSynchronize (libcuda.so.580.95.05:0) (181,365,233 microjoules, 58.99%)</title><rect x="331.5" y="645" width="696.0" height="15.0" fill="rgb(220,72,17)" rx="2" ry="2" />
+<text  x="334.47" y="655.5" >cuCtxSynchronize (libcuda.so.580.95.05:0)</text>
+</g>
+<g >
+<title>0x73592f916a17 (libcupti.so.2025.1.1:0) (301,194 microjoules, 0.10%)</title><rect x="1106.6" y="389" width="1.2" height="15.0" fill="rgb(218,63,15)" rx="2" ry="2" />
+<text  x="1109.61" y="399.5" ></text>
+</g>
+<g >
+<title>0x73592f917c50 (libcupti.so.2025.1.1:0) (3,772,469 microjoules, 1.23%)</title><rect x="1115.1" y="421" width="14.5" height="15.0" fill="rgb(218,63,15)" rx="2" ry="2" />
+<text  x="1118.09" y="431.5" ></text>
+</g>
+<g >
+<title>0x735930467345 (libcuda.so.580.95.05:0) (152,258 microjoules, 0.05%)</title><rect x="281.9" y="101" width="0.6" height="15.0" fill="rgb(228,106,25)" rx="2" ry="2" />
+<text  x="284.93" y="111.5" ></text>
+</g>
+<g >
+<title>0x73592f958bee (libcupti.so.2025.1.1:0) (1,168,550 microjoules, 0.38%)</title><rect x="1173.2" y="501" width="4.5" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
+<text  x="1176.18" y="511.5" ></text>
+</g>
+<g >
+<title>at::detail::_empty_generic&lt;long&gt; (libtorch_cpu.so:0) (319,185 microjoules, 0.10%)</title><rect x="1188.8" y="597" width="1.2" height="15.0" fill="rgb(208,16,4)" rx="2" ry="2" />
+<text  x="1191.78" y="607.5" ></text>
+</g>
+<g >
+<title>0x7359302ebccf (libcuda.so.580.95.05:0) (2,166,432 microjoules, 0.70%)</title><rect x="1152.8" y="389" width="8.3" height="15.0" fill="rgb(229,112,26)" rx="2" ry="2" />
+<text  x="1155.76" y="399.5" ></text>
+</g>
+<g >
+<title>0x7359304252bb (libcuda.so.580.95.05:0) (283,018 microjoules, 0.09%)</title><rect x="1031.7" y="245" width="1.1" height="15.0" fill="rgb(235,140,33)" rx="2" ry="2" />
+<text  x="1034.69" y="255.5" ></text>
+</g>
+<g >
+<title>0x735930f9813f (libcuda.so.580.95.05:0) (2,166,432 microjoules, 0.70%)</title><rect x="1152.8" y="421" width="8.3" height="15.0" fill="rgb(232,125,29)" rx="2" ry="2" />
+<text  x="1155.76" y="431.5" ></text>
+</g>
+<g >
+<title>0x735930461b9f (libcuda.so.580.95.05:0) (190,572 microjoules, 0.06%)</title><rect x="807.4" y="485" width="0.8" height="15.0" fill="rgb(214,43,10)" rx="2" ry="2" />
+<text  x="810.42" y="495.5" ></text>
+</g>
+<g >
+<title>0x7359304981fc (libcuda.so.580.95.05:0) (784,005 microjoules, 0.25%)</title><rect x="319.0" y="245" width="3.1" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="322.05" y="255.5" ></text>
+</g>
+<g >
+<title>0x7359302e37b5 (libcuda.so.580.95.05:0) (1,733,342 microjoules, 0.56%)</title><rect x="1087.8" y="293" width="6.7" height="15.0" fill="rgb(240,162,38)" rx="2" ry="2" />
+<text  x="1090.81" y="303.5" ></text>
+</g>
+<g >
+<title>at::native::add_kernel (libtorch_cuda.so:0) (27,998,138 microjoules, 9.11%)</title><rect x="1061.0" y="597" width="107.4" height="15.0" fill="rgb(209,21,5)" rx="2" ry="2" />
+<text  x="1063.98" y="607.5" >at::native::a..</text>
+</g>
+<g >
+<title>c10::impl::wrap_kernel_functor_unboxed_&lt;c10::impl::detail::WrapFunctionIntoFunctor_&lt;c10::CompileTimeFunctionPointer&lt;at::Tensor(c10::ArrayRef&lt;c10::SymInt&gt;, std::optional&lt;c10::ScalarType&gt;, std::optional&lt;c10::Layout&gt;, std::optional&lt;c10::Device&gt;, std::optional&lt;bool&gt;, std::optional&lt;c10::MemoryFormat&gt;), &amp;at::(anonymous namespace)::(anonymous namespace)::wrapper_CUDA_memory_format_empty(c10::ArrayRef&lt;c10::SymInt&gt;, std::optional&lt;c10::ScalarType&gt;, std::optional&lt;c10::Layout&gt;, std::optional&lt;c10::Device&gt;, std::optional&lt;bool&gt;, std::optional&lt;c10::MemoryFormat&gt;)&gt;, at::Tensor, c10::guts::typelist::typelist&lt;c10::ArrayRef&lt;c10::SymInt&gt;, std::optional&lt;c10::ScalarType&gt;, std::optional&lt;c10::Layout&gt;, std::optional&lt;c10::Device&gt;, std::optional&lt;bool&gt;, std::optional&lt;c10::MemoryFormat&gt; &gt; &gt;, at::Tensor(c10::ArrayRef&lt;c10::SymInt&gt;, std::optional&lt;c10::ScalarType&gt;, std::optional&lt;c10::Layout&gt;, std::optional&lt;c10::Device&gt;, std::optional&lt;bool&gt;, std::optional&lt;c10::MemoryFormat&gt;)&gt;::call (libtorch_cuda.so:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="549" width="178.4" height="15.0" fill="rgb(246,188,45)" rx="2" ry="2" />
+<text  x="143.62" y="559.5" >c10::impl::wrap_kernel_..</text>
+</g>
+<g >
+<title>at::detail::empty_cuda (libtorch_cuda.so:0) (2,962,878 microjoules, 0.96%)</title><rect x="1047.0" y="485" width="11.3" height="15.0" fill="rgb(219,65,15)" rx="2" ry="2" />
+<text  x="1049.98" y="495.5" ></text>
+</g>
+<g >
+<title>0x735935f8950a (libc.so.6:0) (542,396 microjoules, 0.18%)</title><rect x="324.2" y="181" width="2.1" height="15.0" fill="rgb(226,100,24)" rx="2" ry="2" />
+<text  x="327.24" y="191.5" ></text>
+</g>
+<g >
+<title>0x73593026c862 (libcuda.so.580.95.05:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="165" width="178.4" height="15.0" fill="rgb(231,119,28)" rx="2" ry="2" />
+<text  x="143.62" y="175.5" >0x73593026c862 (libcuda..</text>
+</g>
+<g >
+<title>0x73593022453c (libcuda.so.580.95.05:0) (352,489 microjoules, 0.11%)</title><rect x="1151.4" y="389" width="1.4" height="15.0" fill="rgb(232,127,30)" rx="2" ry="2" />
+<text  x="1154.40" y="399.5" ></text>
+</g>
+<g >
+<title>at::_ops::empty_memory_format::redispatch (libtorch_cpu.so:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="565" width="178.4" height="15.0" fill="rgb(221,74,17)" rx="2" ry="2" />
+<text  x="143.62" y="575.5" >at::_ops::empty_memory_..</text>
+</g>
+<g >
+<title>0x73592c2111ee (libcudart.so.12:0) (408,686 microjoules, 0.13%)</title><rect x="1059.4" y="469" width="1.6" height="15.0" fill="rgb(221,76,18)" rx="2" ry="2" />
+<text  x="1062.41" y="479.5" ></text>
+</g>
+<g >
+<title>0x73593022bca5 (libcuda.so.580.95.05:0) (1,771,503 microjoules, 0.58%)</title><rect x="897.3" y="565" width="6.8" height="15.0" fill="rgb(238,153,36)" rx="2" ry="2" />
+<text  x="900.33" y="575.5" ></text>
+</g>
+<g >
+<title>0x73592c2413a9 (libcudart.so.12:0) (46,493,269 microjoules, 15.12%)</title><rect x="140.6" y="261" width="178.4" height="15.0" fill="rgb(249,204,48)" rx="2" ry="2" />
+<text  x="143.62" y="271.5" >0x73592c2413a9 (libcuda..</text>
+</g>
+</g>
+</svg>
